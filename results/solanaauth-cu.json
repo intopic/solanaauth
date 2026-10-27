@@ -1,0 +1,273 @@
+{
+  "instructions": [
+    {
+      "cu": 7728,
+      "name": "init_config",
+      "note": "një herë, nga upgrade authority",
+      "tx_bytes": 495
+    },
+    {
+      "cu": 25467,
+      "name": "propose_jwk",
+      "note": "oracle; Poseidon i modulus-it 2048-bit on-chain + krijimi i llogarisë",
+      "tx_bytes": 751
+    },
+    {
+      "cu": 217,
+      "name": "apply_jwk",
+      "note": "kushdo, pas timelock-ut",
+      "tx_bytes": 243
+    },
+    {
+      "cu": 338,
+      "name": "update_config",
+      "note": "admin",
+      "tx_bytes": 429
+    },
+    {
+      "cu": 109494,
+      "name": "create_wallet",
+      "note": "Google, vk mainnet: verify_full + PDA + krijimi i Wallet",
+      "tx_bytes": 894
+    },
+    {
+      "cu": 108147,
+      "name": "open_session",
+      "note": "verify_full + identiteti + Session (2 programe, 2 limite)",
+      "tx_bytes": 1124
+    },
+    {
+      "cu": 2521,
+      "name": "execute: transfer SOL",
+      "note": "1 CPI te System, brenda limitit",
+      "tx_bytes": 493
+    },
+    {
+      "cu": 2870,
+      "name": "execute: transfer token",
+      "note": "1 CPI te SPL Token, matja para/pas",
+      "tx_bytes": 525
+    },
+    {
+      "cu": 4537,
+      "name": "execute: SOL + token",
+      "note": "2 CPI në një instruksion",
+      "tx_bytes": 611
+    },
+    {
+      "cu": 530,
+      "name": "close_session",
+      "note": "pas skadimit; rent-i kthehet te vault-i",
+      "tx_bytes": 309
+    },
+    {
+      "cu": 111881,
+      "name": "create_wallet + open_session",
+      "note": "hyrja e parë në një instruksion (vk test, allow_test_vk = 1)",
+      "tx_bytes": 1000
+    },
+    {
+      "cu": 103845,
+      "name": "revoke_session (zk)",
+      "note": "me provë të re zkLogin",
+      "tx_bytes": 844
+    },
+    {
+      "cu": 527,
+      "name": "close_session (pas revokimit)",
+      "note": "",
+      "tx_bytes": 309
+    },
+    {
+      "cu": 107073,
+      "name": "open_session (vk test)",
+      "note": "",
+      "tx_bytes": 999
+    },
+    {
+      "cu": 186,
+      "name": "revoke_session (self)",
+      "note": "nga çelësi i sesionit",
+      "tx_bytes": 374
+    },
+    {
+      "cu": 324,
+      "name": "revoke_jwk",
+      "note": "admin, menjëherë",
+      "tx_bytes": 373
+    }
+  ],
+  "negatives": [
+    {
+      "case": "init_config nga dikush që s'është upgrade authority",
+      "expected_code": 4,
+      "rejected": true
+    },
+    {
+      "case": "propose_jwk nga dikush që s'është admin/oracle",
+      "expected_code": 4,
+      "rejected": true
+    },
+    {
+      "case": "create_wallet me JWK ende në timelock",
+      "expected_code": 11,
+      "rejected": true
+    },
+    {
+      "case": "apply_jwk para timelock-ut",
+      "expected_code": 20,
+      "rejected": true
+    },
+    {
+      "case": "apply_jwk pa ndryshim në pritje",
+      "expected_code": 21,
+      "rejected": true
+    },
+    {
+      "case": "create_wallet: 1 byte i ndryshuar në provë",
+      "expected_code": 10,
+      "rejected": true
+    },
+    {
+      "case": "create_wallet: session_key tjetër nga eph_pubkey i provës",
+      "expected_code": 10,
+      "rejected": true
+    },
+    {
+      "case": "create_wallet: session_key nuk nënshkruan",
+      "expected_code": 3,
+      "rejected": true
+    },
+    {
+      "case": "create_wallet: JWK i lëshuesit tjetër (iss mismatch)",
+      "expected_code": 12,
+      "rejected": true
+    },
+    {
+      "case": "create_wallet: verifying key test kur allow_test_vk = 0",
+      "expected_code": 16,
+      "rejected": true
+    },
+    {
+      "case": "create_wallet: adresë portofoli që s'del nga identiteti",
+      "expected_code": 2,
+      "rejected": true
+    },
+    {
+      "case": "create_wallet: max_epoch > now + max_session_secs",
+      "expected_code": 15,
+      "rejected": true
+    },
+    {
+      "case": "update_config nga oracle (jo admin)",
+      "expected_code": 4,
+      "rejected": true
+    },
+    {
+      "case": "create_wallet: prova ka skaduar (now >= max_epoch)",
+      "expected_code": 14,
+      "rejected": true
+    },
+    {
+      "case": "create_wallet: portofoli ekziston",
+      "expected_code": 5,
+      "rejected": true
+    },
+    {
+      "case": "open_session: politika lejon vetë programin solanaauth",
+      "expected_code": 40,
+      "rejected": true
+    },
+    {
+      "case": "open_session: verifying key test kur allow_test_vk = 0",
+      "expected_code": 16,
+      "rejected": true
+    },
+    {
+      "case": "open_session: sesioni ekziston",
+      "expected_code": 5,
+      "rejected": true
+    },
+    {
+      "case": "execute: SOL mbi limitin e dritares",
+      "expected_code": 33,
+      "rejected": true
+    },
+    {
+      "case": "execute: token mbi limitin (300 + 201 > 500)",
+      "expected_code": 33,
+      "rejected": true
+    },
+    {
+      "case": "execute: token pa limit (deny by default)",
+      "expected_code": 34,
+      "rejected": true
+    },
+    {
+      "case": "execute: Approve (delegate) mbi token account të vault-it",
+      "expected_code": 36,
+      "rejected": true
+    },
+    {
+      "case": "execute: Assign i vault-it te një program tjetër",
+      "expected_code": 35,
+      "rejected": true
+    },
+    {
+      "case": "execute: program jashtë allowlist-it",
+      "expected_code": 32,
+      "rejected": true
+    },
+    {
+      "case": "execute: CPI te vetë programi",
+      "expected_code": 37,
+      "rejected": true
+    },
+    {
+      "case": "execute: nënshkrues që s'është session_key",
+      "expected_code": 2,
+      "rejected": true
+    },
+    {
+      "case": "execute: portofoli si llogari e instruksionit të brendshëm",
+      "expected_code": 2,
+      "rejected": true
+    },
+    {
+      "case": "close_session: sesioni ende aktiv",
+      "expected_code": 39,
+      "rejected": true
+    },
+    {
+      "case": "execute: sesioni ka skaduar",
+      "expected_code": 30,
+      "rejected": true
+    },
+    {
+      "case": "revoke_session (zk): identitet që s'është i portofolit",
+      "expected_code": 18,
+      "rejected": true
+    },
+    {
+      "case": "execute: sesioni i revokuar",
+      "expected_code": 31,
+      "rejected": true
+    },
+    {
+      "case": "revoke_session (self): nënshkrues tjetër",
+      "expected_code": 2,
+      "rejected": true
+    },
+    {
+      "case": "revoke_jwk nga oracle (jo admin)",
+      "expected_code": 4,
+      "rejected": true
+    },
+    {
+      "case": "open_session me JWK të revokuar",
+      "expected_code": 11,
+      "rejected": true
+    }
+  ],
+  "program_size_bytes": 70528
+}
