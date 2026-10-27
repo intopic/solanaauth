@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 publish = false
-description = "Matjet e compute units (CU) për programin zklogin-verifier"
+description = "Matjet e compute units (CU) dhe testet LiteSVM për zklogin-verifier dhe solanaauth"
 
 [dependencies]
 reference = { path = "../reference" }
@@ -29,3 +29,5 @@ solana-message = "4.2"
 solana-signer = "3"
 solana-transaction = "4.1"
 solana-compute-budget-interface = "3"
+solana-account = "4"
+solana-clock = "~3.2"
