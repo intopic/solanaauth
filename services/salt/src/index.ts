@@ -1,5 +1,5 @@
 /**
- * Salt-i i zkLogin: `salt = HMAC-SHA256(master_seed, "solanaauth:salt:v1" || iss || 0 || aud || 0 || sub)[0..16]`.
+ * Salt-i i zkLogin: `salt = HKDF-SHA256(ikm = master_seed, salt = "", info = "solanaauth:salt:v1" || iss || 0 || aud || 0 || sub, 16 bytes)`.
  *
  * - Salt-i nuk është çelës: pa një JWT të vlefshme të përdoruesit nuk jep akses, dhe prova zk
  *   nuk e zbulon on-chain. Por i njëjti salt duhet të kthehet gjithmonë për të njëjtin përdorues,
@@ -7,7 +7,7 @@
  * - Shërbimi verifikon nënshkrimin e JWT-së me JWKS e lëshuesit, `exp`, dhe që `aud` është në
  *   listën e aplikacioneve të lejuara.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { hkdfSync, timingSafeEqual } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 
 export const ISSUERS: Record<string, string> = {
@@ -34,16 +34,10 @@ export class SaltError extends Error {
 }
 
 export function deriveSalt(masterSeed: Uint8Array, iss: string, aud: string, sub: string): bigint {
-  const h = createHmac("sha256", masterSeed)
-    .update("solanaauth:salt:v1")
-    .update(iss)
-    .update(Uint8Array.of(0))
-    .update(aud)
-    .update(Uint8Array.of(0))
-    .update(sub)
-    .digest();
+  const info = Buffer.concat([Buffer.from("solanaauth:salt:v1"), Buffer.from(iss), Buffer.of(0), Buffer.from(aud), Buffer.of(0), Buffer.from(sub)]);
+  const okm = new Uint8Array(hkdfSync("sha256", masterSeed, new Uint8Array(0), info, 16));
   let n = 0n;
-  for (const b of h.subarray(0, 16)) n = (n << 8n) | BigInt(b);
+  for (const b of okm) n = (n << 8n) | BigInt(b);
   return n;
 }
 
