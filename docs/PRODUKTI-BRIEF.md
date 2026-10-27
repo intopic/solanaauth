@@ -1,8 +1,8 @@
 # Produkti i plotë: solanaauth SDK
 
 Brief-i për developer-in pas Hapit 1 (GO, 110,428 CU, shih [`HAPI-1-RAPORT.md`](HAPI-1-RAPORT.md) te PR #1).
-Ky dokument përshkruan **gjithë produktin** që duhet ndërtuar. Në fund, ne bëjmë testin e pranimit
-(seksioni i fundit). Ndërkohë punohet me PR të vogla në `main`, me CI jeshile.
+Ky dokument përshkruan **gjithë produktin** që duhet ndërtuar: **të gjitha etapat M0–M6, pa ndalesë**.
+Në fund, ne bëjmë testin e pranimit (seksioni i fundit). Puna shkon në `main`, me CI jeshile.
 
 ## 1. Çfarë po ndërtojmë
 
@@ -81,7 +81,7 @@ Bazohet te `zklogin-verifier` i Hapit 1. Një program, me këto pjesë:
 
 ### 3.4 Skadimi
 Përcakto si lidhet `max_epoch` i qarkut me kohën e Solana-s (timestamp ose slot i koduar në nonce).
-**Dërgo propozimin para implementimit.**
+Zgjidhe, dokumentoje te `docs/DIZAJNI.md` dhe vazhdo.
 
 ### 3.5 Rikuperimi
 - Humbi passkey-n → hyn me Google, shton passkey të re pas një **timelock** (p.sh. 48 orë), me
@@ -171,19 +171,20 @@ Funksionon edhe nëse aplikacioni që e krijoi portofolin mbyllet.
 - Asnjë çelës mainnet në repo apo në Secrets. Secrets vetëm për devnet.
 - Kodi gati për auditim: invariante të dokumentuara, `unsafe` i justifikuar, varësi të pin-uara.
 
-## 9. Etapat (orientuese, ~10–12 javë)
+## 9. Etapat (të gjitha bëhen, njëra pas tjetrës, pa pritur miratim)
 
 | Etapa | Përmbajtja | Pranohet kur |
 |---|---|---|
 | **M0** | Merge PR #1, devnet i Hapit 1 | Nënshkrimet devnet në raport |
-| **M1** | `docs/DIZAJNI.md`: PDA-t, registry-ja, skadimi, rikuperimi, `signMessage` | **E shqyrtojmë bashkë para kodit** |
+| **M1** | `docs/DIZAJNI.md`: PDA-t, registry-ja, skadimi, rikuperimi, `signMessage` | Dokumenti në `main`; vazhdo menjëherë me M2 |
 | **M2** | JWK registry + wallet PDA + `open_session` + `execute` me politika | Teste + CU në CI |
 | **M3** | Passkey, rikuperimi, revoke, veprimet mbi prag | Teste negative të plota |
 | **M4** | Prover + salt të hostuar, SDK (core, react, agent) | Quickstart funksionon në devnet |
 | **M5** | Paymaster opsional + dashboard + faturimi + faqja e portofolit | Demo me paymaster ON/OFF |
 | **M6** | Demot, dokumentimi, `SECURITY.md`, gati për auditim | Testi ynë i pranimit (më poshtë) |
 
-Përditësim i shkurtër çdo javë: çfarë u bë, numrat e rinj nga CI, bllokimet.
+Pas çdo etape: commit/PR në `main` me CI jeshile dhe një përmbledhje e shkurtër (çfarë u bë, numrat nga CI).
+Nëse diçka bllokon, zgjidh opsionin më të sigurt, shënoje te `docs/DIZAJNI.md` dhe vazhdo.
 
 ## 10. Testi ynë i pranimit (në fund)
 
