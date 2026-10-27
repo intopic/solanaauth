@@ -369,7 +369,11 @@ fn solanaauth_m2() {
     let fee_payer = env.payer.pubkey();
     let ix = env.ix_execute(&k, &gwallet, &[system_transfer(&fee_payer, &dest, 1)]);
     let r = env.send(&[ix], &[&eph]);
-    out.fail("execute: fee payer-i si nënshkrues i instruksionit të brendshëm", 3, r);
+    out.fail(
+        "execute: fee payer-i si nënshkrues i instruksionit të brendshëm",
+        3,
+        r,
+    );
 
     let ix = env.ix_execute(
         &other.pubkey(),
