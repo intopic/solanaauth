@@ -33,7 +33,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: programs/zklogin-verifier
+          workspaces: |
+            programs/zklogin-verifier
+            programs/solanaauth
       - uses: actions/cache@v4
         with:
           path: |
@@ -48,12 +50,18 @@ jobs:
         run: |
           solana --version | tee solana-version.txt
           cargo build-sbf --manifest-path programs/zklogin-verifier/Cargo.toml
-          ls -l programs/zklogin-verifier/target/deploy/
+          cargo build-sbf --manifest-path programs/solanaauth/Cargo.toml
+          ls -l programs/zklogin-verifier/target/deploy/ programs/solanaauth/target/deploy/
+      - name: Build solanaauth (feature mainnet, vetëm kontroll)
+        run: |
+          cargo build-sbf --manifest-path programs/solanaauth/Cargo.toml --features mainnet --sbf-out-dir target/mainnet
+          ls -l target/mainnet/
       - uses: actions/upload-artifact@v4
         with:
           name: program
           path: |
             programs/zklogin-verifier/target/deploy/zklogin_verifier.so
+            programs/solanaauth/target/deploy/solanaauth.so
             solana-version.txt
 
   # 2. reference: verifikimi off-chain me kodin e Sui-t + konvertimi i key-ve.
@@ -69,6 +77,8 @@ jobs:
         run: cargo test -p reference -- --nocapture
       - name: Host tests (kodi i programit kundër referencës)
         run: cargo test -p bench --lib --test host -- --nocapture
+      - name: Unit tests solanaauth
+        run: cargo test --manifest-path programs/solanaauth/Cargo.toml
 
   # 3. bench: programi në LiteSVM, matjet e CU dhe testet negative.
   bench:
@@ -88,10 +98,14 @@ jobs:
         run: |
           export SOLANA_VERSION="$(cat artifact/solana-version.txt)"
           cargo test -p bench --test cu_report -- --nocapture
+      - name: solanaauth (M2) — skenari, testet negative, CU
+        env:
+          SOLANAAUTH_SO: ${{ github.workspace }}/artifact/programs/solanaauth/target/deploy/solanaauth.so
+        run: cargo test -p bench --test solanaauth -- --nocapture
       - name: Update README results table
         run: python3 scripts/update_readme.py
       - name: Job summary
-        run: cat results/cu-report.md >> "$GITHUB_STEP_SUMMARY"
+        run: cat results/cu-report.md results/solanaauth-cu.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: cu-report

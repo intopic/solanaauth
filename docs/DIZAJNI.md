@@ -193,3 +193,8 @@ Propozimi **SAA-1271** (si ERC-1271):
 | D6 | `kid` vetëm për menaxhim | modulus-i identifikon çelësin; shmang parsimin e header-it on-chain |
 | D7 | Timelock 48h në të dy drejtimet e rikuperimit | një faktor i vjedhur s'mund ta marrë portofolin pa dijeninë e tjetrit |
 | D8 | Programi i Hapit 1 mbetet; `solanaauth` e përdor si librari | matjet krahasuese mbeten të riprodhueshme |
+| D9 | `max_fee` i politikës rezervohet; në M2 duhet të jetë 0 | pagesa e tarifave nga vault-i vjen me paymaster-in (M5); deri atëherë asnjë rrugë për të nxjerrë SOL jashtë limitit |
+| D10 | `propose_jwk` merr modulus-in e plotë dhe llogarit hash-in on-chain | propozimi krahasohet drejtpërdrejt me JWKS publike gjatë timelock-ut; oracle s'mund të fusë një hash pa modulus |
+| D11 | Rent-i i një token account-i të vault-it që mbyllet llogaritet si SOL i vault-it | mbyllja me destinacion tjetër do të nxirrte lamports pa limit |
+| D12 | `Wallet` dhe `Session` nuk lejohen fare si llogari të instruksioneve të brendshme; maks. 24 llogari për instruksion, 8 token account-e të matura | thjeshtësi dhe kufij të qartë për CU/stack |
+| D13 | `execute` nuk verifikon PDA-në e `Wallet`/`Session` me sha256: mjafton pronari (programi) + diskriminuesi + lidhja `session.wallet`/`session.session_key` | vetëm programi krijon këto llogari dhe vetëm në PDA-të e sakta; kursen CU |

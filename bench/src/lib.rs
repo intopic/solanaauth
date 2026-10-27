@@ -9,6 +9,7 @@ use zklogin_verifier::inputs::{self, Circuit, Fe, Modulus, ZkLoginPublicInputs};
 use zklogin_verifier::vk::VkId;
 use zklogin_verifier::{OP_COMPUTE_INPUTS_HASH, OP_VERIFY_FULL, OP_VERIFY_PROOF, TRACE};
 
+pub mod auth;
 pub mod svm;
 
 pub mod negative {

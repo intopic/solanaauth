@@ -1,0 +1,265 @@
+//! 7. `execute`: sesioni ekzekuton instruksione me vault-in si nënshkrues, brenda politikës.
+//!
+//! Llogaritë: `[session_key (s), wallet, session (w), vault (w), ...të tjerat]`.
+//! Data: `n_ix u8`, pastaj për çdo instruksion: `program_index u8, n_accounts u8,
+//! (account_index u8, flags u8) * n, data_len u16, data`. `flags`: bit 0 writable, bit 1 signer.
+//! Indekset i referohen listës së llogarive të instruksionit `execute`.
+//!
+//! Programi nuk interpreton instruksionet e brendshme: mat bilancet e vault-it dhe të token
+//! account-eve të tij para dhe pas CPI-ve dhe kontrollon invariantet (DIZAJNI.md 5.2).
+
+use pinocchio::{
+    cpi::{invoke_signed_with_bounds, Seed, Signer},
+    instruction::{InstructionAccount, InstructionView},
+    AccountView, Address, ProgramResult,
+};
+
+use crate::error::{AuthError, Result};
+use crate::policy::{charge, is_forbidden};
+use crate::processor::SYSTEM_PROGRAM;
+use crate::state::{Session, Wallet, MAX_PROGRAMS, SEED_VAULT};
+use crate::util::{derive_pda, now, require_signer, require_writable, Account, Reader};
+
+pub const TOKEN_PROGRAM: Address =
+    Address::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+pub const TOKEN_2022_PROGRAM: Address =
+    Address::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+
+/// Maksimumi i llogarive për një instruksion të brendshëm.
+pub const MAX_INNER_ACCOUNTS: usize = 24;
+/// Maksimumi i token account-eve të vault-it që maten në një `execute`.
+pub const MAX_TRACKED: usize = 8;
+
+const FIXED: usize = 4;
+const WALLET_IDX: usize = 1;
+const SESSION_IDX: usize = 2;
+
+// Layout-i i SPL Token Account (i njëjtë në Token-2022 për 165 bytes e para).
+const TA_LEN: usize = 165;
+const TA_MINT: core::ops::Range<usize> = 0..32;
+const TA_OWNER: core::ops::Range<usize> = 32..64;
+const TA_AMOUNT: core::ops::Range<usize> = 64..72;
+const TA_DELEGATE_TAG: core::ops::Range<usize> = 72..76;
+const TA_CLOSE_AUTH_TAG: core::ops::Range<usize> = 129..133;
+
+#[derive(Clone, Copy)]
+struct Tracked {
+    index: u8,
+    mint: [u8; 32],
+    amount: u64,
+    lamports: u64,
+}
+
+fn is_token_program(a: &AccountView) -> bool {
+    a.owned_by(&TOKEN_PROGRAM) || a.owned_by(&TOKEN_2022_PROGRAM)
+}
+
+/// Token account i vault-it? Kthen (mint, amount).
+fn vault_token(a: &AccountView, vault: &Address) -> Result<Option<([u8; 32], u64)>> {
+    if !a.is_writable() || !is_token_program(a) || a.data_len() < TA_LEN {
+        return Ok(None);
+    }
+    let d = a.try_borrow()?;
+    if &d[TA_OWNER] != vault.as_ref() {
+        return Ok(None);
+    }
+    Ok(Some((
+        d[TA_MINT].try_into().unwrap(),
+        u64::from_le_bytes(d[TA_AMOUNT].try_into().unwrap()),
+    )))
+}
+
+pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> ProgramResult {
+    if accounts.len() < FIXED {
+        return Err(AuthError::InvalidAccount.into());
+    }
+    let session_key = &accounts[0];
+    let wallet_view = &accounts[WALLET_IDX];
+    let session_view = &accounts[SESSION_IDX];
+    let vault = &accounts[3];
+    require_signer(session_key)?;
+    require_writable(session_view)?;
+    require_writable(vault)?;
+    let now = now()?;
+
+    // Sesioni dhe portofoli.
+    Wallet::check(wallet_view, program_id)?;
+    Session::check(session_view, program_id)?;
+    let vault_bump = Wallet::from_bytes(&wallet_view.try_borrow()?)?.vault_bump;
+    let mut allowed = [[0u8; 32]; MAX_PROGRAMS];
+    let n_allowed;
+    {
+        let d = session_view.try_borrow()?;
+        let s = Session::from_bytes(&d)?;
+        if &s.wallet != wallet_view.address().as_array()
+            || &s.session_key != session_key.address().as_array()
+        {
+            return Err(AuthError::Unauthorized.into());
+        }
+        if s.revoked != 0 {
+            return Err(AuthError::SessionRevoked.into());
+        }
+        if now >= s.expires_at.get() {
+            return Err(AuthError::SessionExpired.into());
+        }
+        n_allowed = s.n_programs as usize;
+        allowed[..n_allowed].copy_from_slice(s.programs());
+    }
+    let expected_vault = derive_pda(
+        &[SEED_VAULT, wallet_view.address().as_ref()],
+        vault_bump,
+        program_id,
+    );
+    if vault.address() != &expected_vault {
+        return Err(AuthError::InvalidAccount.into());
+    }
+
+    // Matja para CPI-ve.
+    let vault_before = vault.lamports();
+    let mut tracked = [Tracked {
+        index: 0,
+        mint: [0; 32],
+        amount: 0,
+        lamports: 0,
+    }; MAX_TRACKED];
+    let mut n_tracked = 0usize;
+    for (i, a) in accounts.iter().enumerate().skip(FIXED) {
+        if let Some((mint, amount)) = vault_token(a, vault.address())? {
+            // Llogaritë e dyfishuara maten një herë.
+            if tracked[..n_tracked]
+                .iter()
+                .any(|t| accounts[t.index as usize].address() == a.address())
+            {
+                continue;
+            }
+            if n_tracked == MAX_TRACKED {
+                return Err(AuthError::TooManyEntries.into());
+            }
+            tracked[n_tracked] = Tracked {
+                index: i as u8,
+                mint,
+                amount,
+                lamports: a.lamports(),
+            };
+            n_tracked += 1;
+        }
+    }
+
+    // CPI-të.
+    let bump_seed = [vault_bump];
+    let seeds = [
+        Seed::from(SEED_VAULT),
+        Seed::from(wallet_view.address().as_ref()),
+        Seed::from(&bump_seed),
+    ];
+    let signer = Signer::from(&seeds);
+    let mut r = Reader::new(data);
+    let n_ix = r.u8()?;
+    if n_ix == 0 {
+        return Err(AuthError::InvalidInstruction.into());
+    }
+    for _ in 0..n_ix {
+        let program = accounts
+            .get(r.u8()? as usize)
+            .ok_or(AuthError::InvalidAccount)?;
+        if is_forbidden(program.address(), program_id) {
+            return Err(AuthError::ForbiddenProgram.into());
+        }
+        if !allowed[..n_allowed].contains(program.address().as_array()) {
+            return Err(AuthError::ProgramNotAllowed.into());
+        }
+        let n_acc = r.u8()? as usize;
+        if n_acc > MAX_INNER_ACCOUNTS {
+            return Err(AuthError::TooManyEntries.into());
+        }
+        let metas = r.take(2 * n_acc)?;
+        let data_len = r.u16()? as usize;
+        let ix_data = r.take(data_len)?;
+
+        let mut ix_accounts: [core::mem::MaybeUninit<InstructionAccount>; MAX_INNER_ACCOUNTS] =
+            [const { core::mem::MaybeUninit::uninit() }; MAX_INNER_ACCOUNTS];
+        let mut views: [&AccountView; MAX_INNER_ACCOUNTS] = [session_key; MAX_INNER_ACCOUNTS];
+        for (k, m) in metas.chunks_exact(2).enumerate() {
+            let idx = m[0] as usize;
+            let flags = m[1];
+            if idx == WALLET_IDX || idx == SESSION_IDX || flags > 3 {
+                return Err(AuthError::InvalidAccount.into());
+            }
+            let a = accounts.get(idx).ok_or(AuthError::InvalidAccount)?;
+            let is_signer = flags & 2 != 0;
+            if is_signer && !a.is_signer() && a.address() != vault.address() {
+                return Err(AuthError::MissingSignature.into());
+            }
+            ix_accounts[k].write(InstructionAccount::new(
+                a.address(),
+                flags & 1 != 0,
+                is_signer,
+            ));
+            views[k] = a;
+        }
+        // SAFETY: elementet [0, n_acc) u inicializuan më lart.
+        let ix_accounts: &[InstructionAccount] = unsafe {
+            core::slice::from_raw_parts(ix_accounts.as_ptr() as *const InstructionAccount, n_acc)
+        };
+        let ix = InstructionView {
+            program_id: program.address(),
+            data: ix_data,
+            accounts: ix_accounts,
+        };
+        invoke_signed_with_bounds::<MAX_INNER_ACCOUNTS>(
+            &ix,
+            &views[..n_acc],
+            core::slice::from_ref(&signer),
+        )?;
+    }
+    r.finish()?;
+
+    // Invariantet pas CPI-ve.
+    if !vault.owned_by(&SYSTEM_PROGRAM) || vault.data_len() != 0 {
+        return Err(AuthError::VaultInvariant.into());
+    }
+    // Rent-i i token account-eve të mbyllura llogaritet si SOL i vault-it.
+    let mut sol_in = vault_before;
+    let mut spent: [([u8; 32], u64); MAX_TRACKED] = [([0; 32], 0); MAX_TRACKED];
+    let mut n_spent = 0usize;
+    for t in &tracked[..n_tracked] {
+        let a = &accounts[t.index as usize];
+        if a.lamports() == 0 || a.data_len() == 0 {
+            if t.amount != 0 {
+                return Err(AuthError::TokenInvariant.into());
+            }
+            sol_in = sol_in.saturating_add(t.lamports);
+            continue;
+        }
+        let d = a.try_borrow()?;
+        if !is_token_program(a)
+            || d.len() < TA_LEN
+            || d[TA_OWNER] != *vault.address().as_ref()
+            || d[TA_MINT] != t.mint
+            || d[TA_DELEGATE_TAG] != [0; 4]
+            || d[TA_CLOSE_AUTH_TAG] != [0; 4]
+        {
+            return Err(AuthError::TokenInvariant.into());
+        }
+        let after = u64::from_le_bytes(d[TA_AMOUNT].try_into().unwrap());
+        let out = t.amount.saturating_sub(after);
+        if out > 0 {
+            match spent[..n_spent].iter_mut().find(|(m, _)| *m == t.mint) {
+                Some((_, v)) => *v = v.saturating_add(out),
+                None => {
+                    spent[n_spent] = (t.mint, out);
+                    n_spent += 1;
+                }
+            }
+        }
+    }
+    let sol_out = sol_in.saturating_sub(vault.lamports());
+
+    let mut d = session_view.try_borrow_mut()?;
+    let s = Session::from_bytes_mut(&mut d)?;
+    charge(s, &[0u8; 32], sol_out, now)?;
+    for (mint, amount) in &spent[..n_spent] {
+        charge(s, mint, *amount, now)?;
+    }
+    Ok(())
+}
