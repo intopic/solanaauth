@@ -7,8 +7,8 @@ Nga LiteSVM në CI. CU e instruksionit `solanaauth` (pa precompile-in secp256r1,
 | add_passkey (zk) | 105,224 | 894 | passkey-i i parë, me provë zkLogin |
 | add_passkey (passkey) | 3,105 | 667 | secp256r1 + WebAuthn + nonce |
 | set_threshold | 2,898 | 640 | 1 SOL në 24 orë pa passkey |
-| execute nën prag | 2,638 | 494 | transfer SOL, pragu ditor përditësohet |
-| execute me passkey (mbi prag) | 5,453 | 883 | sesion + passkey |
+| execute nën prag | 2,673 | 494 | transfer SOL, pragu ditor përditësohet |
+| execute me passkey (mbi prag) | 5,494 | 883 | sesion + passkey |
 | remove_passkey | 2,820 | 633 |  |
 | begin_recovery (zk → passkey) | 105,485 | 894 | humbi passkey-n; timelock 48 orë |
 | cancel_recovery (passkey) | 2,781 | 633 | pronari anulon rikuperimin e filluar me Google |
@@ -39,4 +39,4 @@ Nga LiteSVM në CI. CU e instruksionit `solanaauth` (pa precompile-in secp256r1,
 | execute pas revokimit me passkey | `Custom(31)` |
 | finish_recovery 1 sekondë para eta | `Custom(20)` |
 
-<sub>solanaauth.so: 89,768 bytes</sub>
+<sub>solanaauth.so: 91,064 bytes</sub>

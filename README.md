@@ -136,7 +136,7 @@ Provë nga prover-dev-v2 (qarku v2) mbi një JWT nga jwt-tester.mystenlabs.com m
 - Hash-i `all_inputs_hash` i rillogaritur në SVM (`compute_inputs_hash`, `sol_log_data`) përputhet bit për bit me sui-crypto/fastcrypto për të tri provat.
 - Kodet e gabimeve: Custom(3) = prova u refuzua nga Groth16, Custom(4) = input publik jashtë fushës.
 
-<sub>program.so sha256: `65cbb7790d1860a24ec905c329feea7825287e6371fb49a6370b2e18dda3add2` · svm: `litesvm 0.17.0 (Agave 4.x feature set)` · commit: `6616567e512378045abaa4bcb380c8f8afa3ba62` · solana: `solana-cli 4.3.2 (src:92555e42; feat:c9ad34d2, client:Agave)`</sub>
+<sub>program.so sha256: `65cbb7790d1860a24ec905c329feea7825287e6371fb49a6370b2e18dda3add2` · svm: `litesvm 0.17.0 (Agave 4.x feature set)` · commit: `75b26510c83222bd44a0052d2aa0fcbf05352c60` · solana: `solana-cli 4.3.2 (src:a2033000; feat:c9ad34d2, client:Agave)`</sub>
 <!-- CU-RESULTS:END -->
 
 | Kostoja totale e `verify_full` | Vendimi |

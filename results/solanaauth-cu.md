@@ -10,9 +10,9 @@ Të gjitha numrat vijnë nga LiteSVM në CI, me programin e ndërtuar me `cargo 
 | update_config | 339 | 429 | admin |
 | create_wallet | 109,496 | 894 | Google, vk mainnet: verify_full + PDA + krijimi i Wallet |
 | open_session | 108,147 | 1124 | verify_full + identiteti + Session (2 programe, 2 limite) |
-| execute: transfer SOL | 2,575 | 494 | 1 CPI te System, brenda limitit |
-| execute: transfer token | 2,917 | 526 | 1 CPI te SPL Token, matja para/pas |
-| execute: SOL + token | 4,602 | 612 | 2 CPI në një instruksion |
+| execute: transfer SOL | 2,610 | 494 | 1 CPI te System, brenda limitit |
+| execute: transfer token | 6,094 | 526 | 1 CPI te SPL Token, matja para/pas |
+| execute: SOL + token | 7,801 | 612 | 2 CPI në një instruksion |
 | close_session | 530 | 309 | pas skadimit; rent-i kthehet te vault-i |
 | create_wallet + open_session | 111,883 | 1000 | hyrja e parë në një instruksion (vk test, allow_test_vk = 1) |
 | revoke_session (zk) | 103,939 | 844 | me provë të re zkLogin |
@@ -61,4 +61,4 @@ Të gjitha numrat vijnë nga LiteSVM në CI, me programin e ndërtuar me `cargo 
 | revoke_jwk nga oracle (jo admin) | `Custom(4)` |
 | open_session me JWK të revokuar | `Custom(11)` |
 
-<sub>solanaauth.so: 89,768 bytes</sub>
+<sub>solanaauth.so: 91,064 bytes</sub>

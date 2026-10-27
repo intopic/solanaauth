@@ -37,19 +37,19 @@
       "tx_bytes": 1124
     },
     {
-      "cu": 2575,
+      "cu": 2610,
       "name": "execute: transfer SOL",
       "note": "1 CPI te System, brenda limitit",
       "tx_bytes": 494
     },
     {
-      "cu": 2917,
+      "cu": 6094,
       "name": "execute: transfer token",
       "note": "1 CPI te SPL Token, matja para/pas",
       "tx_bytes": 526
     },
     {
-      "cu": 4602,
+      "cu": 7801,
       "name": "execute: SOL + token",
       "note": "2 CPI në një instruksion",
       "tx_bytes": 612
@@ -274,5 +274,5 @@
       "rejected": true
     }
   ],
-  "program_size_bytes": 89768
+  "program_size_bytes": 91064
 }

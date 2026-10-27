@@ -1,0 +1,27 @@
+[
+  {
+    "account": "Config",
+    "bytes": 96,
+    "rent_lamports": 1559040
+  },
+  {
+    "account": "Jwk",
+    "bytes": 192,
+    "rent_lamports": 2227200
+  },
+  {
+    "account": "Wallet",
+    "bytes": 416,
+    "rent_lamports": 3786240
+  },
+  {
+    "account": "Vault",
+    "bytes": 0,
+    "rent_lamports": 890880
+  },
+  {
+    "account": "Session",
+    "bytes": 640,
+    "rent_lamports": 5345280
+  }
+]
