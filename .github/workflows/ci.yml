@@ -50,13 +50,13 @@ jobs:
       - name: Build program (SBF)
         run: |
           solana --version | tee solana-version.txt
-          cargo build-sbf --locked --manifest-path programs/zklogin-verifier/Cargo.toml
-          cargo build-sbf --locked --manifest-path programs/solanaauth/Cargo.toml
-          cargo build-sbf --locked --manifest-path programs/demo-game/Cargo.toml
+          cargo build-sbf --manifest-path programs/zklogin-verifier/Cargo.toml -- --locked
+          cargo build-sbf --manifest-path programs/solanaauth/Cargo.toml -- --locked
+          cargo build-sbf --manifest-path programs/demo-game/Cargo.toml -- --locked
           ls -l programs/zklogin-verifier/target/deploy/ programs/solanaauth/target/deploy/ programs/demo-game/target/deploy/
       - name: Build solanaauth (feature mainnet, vetëm kontroll)
         run: |
-          cargo build-sbf --locked --manifest-path programs/solanaauth/Cargo.toml --features mainnet --sbf-out-dir target/mainnet
+          cargo build-sbf --manifest-path programs/solanaauth/Cargo.toml --features mainnet --sbf-out-dir target/mainnet -- --locked
           ls -l target/mainnet/
       - uses: actions/upload-artifact@v4
         with:
