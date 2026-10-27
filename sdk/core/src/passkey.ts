@@ -1,3 +1,4 @@
+import { Buffer } from "buffer";
 /**
  * Passkey (WebAuthn, P-256) për veprimet mbi prag, rikuperimin dhe revokimin.
  *
@@ -9,7 +10,7 @@ import { AccountMeta, PublicKey, TransactionInstruction } from "@solana/web3.js"
 import { p256 } from "@noble/curves/p256";
 import { sha256 } from "@noble/hashes/sha256";
 
-import { Writer, concat, utf8 } from "./bytes.js";
+import { Writer, base64UrlEncode, concat, utf8 } from "./bytes.js";
 import { DOMAIN, INSTRUCTIONS_SYSVAR_ID, Op, SECP256R1_PROGRAM_ID } from "./constants.js";
 import { executeParts, rawInstruction, readonlyMeta, writableMeta, zkMetas, ZkAccounts } from "./instructions.js";
 
@@ -128,7 +129,7 @@ export const passkeyOps = {
 
 /** `clientDataJSON` minimal (për nënshkrues jashtë shfletuesit). */
 export function clientDataFor(challenge: Uint8Array, origin: string): Uint8Array {
-  const b64 = Buffer.from(challenge).toString("base64url");
+  const b64 = base64UrlEncode(challenge);
   return utf8(JSON.stringify({ type: "webauthn.get", challenge: b64, origin, crossOrigin: false }));
 }
 

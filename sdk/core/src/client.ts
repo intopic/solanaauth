@@ -13,7 +13,7 @@ import {
 } from "@solana/web3.js";
 
 import { fetchWallet } from "./accounts.js";
-import { toBigEndian } from "./bytes.js";
+import { base64Encode, toBigEndian } from "./bytes.js";
 import * as ixs from "./instructions.js";
 import { Policy } from "./instructions.js";
 import { jwkAddress, sessionAddress, vaultAddress, walletAddress, zkIdentity } from "./pda.js";
@@ -123,7 +123,7 @@ export class SolanaAuth {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         jwt,
-        extendedEphemeralPublicKey: Buffer.from(ext).toString("base64"),
+        extendedEphemeralPublicKey: base64Encode(ext),
         maxEpoch: String(pending.maxEpoch),
         jwtRandomness: pending.randomness,
         salt: salt.toString(),

@@ -116,3 +116,48 @@ export async function fetchSession(c: Connection, session: PublicKey): Promise<S
   const acc = await c.getAccountInfo(session);
   return acc ? decodeSession(acc.data) : null;
 }
+
+export interface JwkKeyInfo {
+  modulusHash: Uint8Array;
+  modulusBits: number;
+  validFrom: bigint;
+  validUntil: bigint;
+}
+
+export interface JwkAccount {
+  revoked: boolean;
+  issHash: Uint8Array;
+  kidHash: Uint8Array;
+  active: JwkKeyInfo | null;
+  pending: (JwkKeyInfo & { eta: bigint }) | null;
+}
+
+export function decodeJwk(data: Uint8Array): JwkAccount {
+  if (data.length !== 192 || data[0] !== 2) throw new Error("s'është llogari Jwk");
+  const hasPending = data[3] === 1;
+  const revoked = data[4] === 1;
+  const r = new R(data, 8);
+  const issHash = r.bytes(32);
+  const kidHash = r.bytes(32);
+  const key = (): JwkKeyInfo => {
+    const modulusHash = r.bytes(32);
+    const modulusBits = r.u16();
+    r.skip(6);
+    return { modulusHash, modulusBits, validFrom: r.i64(), validUntil: r.i64() };
+  };
+  const active = key();
+  const pending = key();
+  const eta = r.i64();
+  return {
+    revoked,
+    issHash,
+    kidHash,
+    active: isZero(active.modulusHash) ? null : active,
+    pending: hasPending ? { ...pending, eta } : null,
+  };
+}
+
+export async function fetchJwk(c: Connection, jwk: PublicKey): Promise<JwkAccount | null> {
+  const a = await c.getAccountInfo(jwk);
+  return a ? decodeJwk(a.data) : null;
+}

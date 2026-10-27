@@ -3,7 +3,13 @@
   "private": true,
   "license": "Apache-2.0",
   "workspaces": [
-    "sdk/core"
+    "sdk/core",
+    "sdk/react",
+    "sdk/agent",
+    "services/salt",
+    "services/jwk-oracle",
+    "services/prover",
+    "examples/quickstart"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

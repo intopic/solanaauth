@@ -107,6 +107,12 @@ export function base64UrlEncode(b: Uint8Array): string {
   return out;
 }
 
+/** Base64 standard me padding. */
+export function base64Encode(b: Uint8Array): string {
+  const s = base64UrlEncode(b).replace(/-/g, "+").replace(/_/g, "/");
+  return s + "=".repeat((4 - (s.length % 4)) % 4);
+}
+
 export function base64UrlDecode(s: string): Uint8Array {
   const clean = s.replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
   const out: number[] = [];

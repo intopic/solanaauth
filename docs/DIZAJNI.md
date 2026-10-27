@@ -212,3 +212,31 @@ Propozimi **SAA-1271** (si ERC-1271):
 | D15 | Faktori zk shton passkey direkt vetëm kur s'ka asnjë; përndryshe vetëm me rikuperim 48h | Google i vjedhur s'mund të shtojë passkey-n e sulmuesit pa dijeninë e pronarit |
 | D16 | `rpIdHash` i `authenticatorData` nuk kontrollohet on-chain | passkey-t janë të lidhur me origjinën e tyre; çelësi publik i regjistruar në portofol e identifikon. SDK-ja regjistron vetëm passkey të krijuar në domenin e dashboard-it |
 | D17 | `begin_recovery` kind 2 (provë + passkey) është ~1,200 bytes | afër limitit 1,232; SDK-ja përdor `clientDataJSON` minimal dhe, nëse duhet, Address Lookup Table për config/jwk |
+| D18 | Salt = `HMAC-SHA256(master_seed, "solanaauth:salt:v1" ‖ iss ‖ 0 ‖ aud ‖ 0 ‖ sub)[0..16]`, `iss` në formën kanonike | deterministik pa bazë të dhënash; humbja e `master_seed` ndryshon të gjitha adresat, prandaj kërkon backup. Portofoli varet nga `aud` (si në Sui): aplikacione me client ID të ndryshëm kanë portofole të ndryshme |
+| D19 | Oracle-i i JWK-ve vetëm propozon dhe aplikon; nuk revokon | një oracle i komprometuar s'mund të bllokojë hyrjet; çdo propozim duket on-chain gjatë timelock-ut; revokimi mbetet te admini |
+| D20 | Në devnet `jwk_timelock_secs = 0` dhe `allow_test_vk = true` | quickstart-i punon menjëherë pas deploy-it; në mainnet build-i `mainnet` e ndalon VK-në test dhe timelock-u vendoset nga admini |
+| D21 | Në shfletues çelësi i sesionit ruhet në `localStorage` | një XSS merr sesionin, por vetëm brenda politikës (programe, limite, skadim) dhe përdoruesi e revokon me zk ose passkey; alternativa (WebCrypto jo-eksportues) s'ka Ed25519 në të gjithë shfletuesit |
+| D22 | Proxy-i i prover-it nuk verifikon nënshkrimin e JWT-së; kontrollon `aud`, `exp`, `keyClaimName = sub` dhe `maxEpoch ≤ tani + max_session_secs` | qarku verifikon RSA-në; proxy-i mbron vetëm kapacitetin |
+| D23 | Agjentët hyjnë me loopback `127.0.0.1` (si CLI-të OAuth) dhe përdorin vetëm çelësin e sesionit | agjenti nuk sheh kurrë JWT-në e përdoruesit pas hyrjes dhe s'ka asnjë rrugë për të dalë nga politika |
+| D24 | Pa paymaster (para M5) paguesi i hyrjes është vetë çelësi i sesionit; në devnet quickstart-i bën airdrop | asnjë çelës i hostuar; paymaster-i opsional vjen në M5 |
+
+## 11. SDK dhe shërbimet (M4)
+
+| Pjesa | Ku | Çfarë bën | Sekretet |
+|---|---|---|---|
+| `@solanaauth/core` | `sdk/core` | PDA, instruksionet, blloku zk, politika, passkey (WebAuthn + secp256r1), dekodimi i llogarive, rrjedha e hyrjes | asnjë; çelësi i sesionit krijohet te klienti |
+| `@solanaauth/react` | `sdk/react` | `SolanaAuthProvider`, `useSolanaAuth`, `useVaultBalance`, `BrowserLogin` (redirect → `id_token` → sesion) | çelësi i sesionit në `localStorage` |
+| `@solanaauth/agent` | `sdk/agent` | `AgentWallet` (kontroll lokal i politikës, `transferSol`, `transferToken`), `loginAgent` me loopback `127.0.0.1` | skedari i sesionit me leje 0600 |
+| salt service | `services/salt` | `POST /salt {jwt}` → salt deterministik pas verifikimit RS256, `aud` e lejuar, `exp` | `SALT_MASTER_SEED` (32 bytes, secret manager) |
+| jwk-oracle | `services/jwk-oracle` | JWKS e Google/Apple → `propose_jwk`, pas timelock-ut `apply_jwk` | çelësi i oracle-it (vetëm propozon) |
+| prover | `services/prover` | imazhet e Mysten (`prover-stable`, `prover-fe-stable`) + proxy me CORS, rate limit, `aud` e lejuar, kufi për `maxEpoch` | asnjë (zkey është publik) |
+| quickstart | `examples/quickstart` | Vite + React: hyrje me Google, bilanci, transfertë brenda limitit, dalje me revokim | `.env.local` vetëm me ID publike |
+
+Testet: vektorët Rust↔TS (`fixtures/sdk-vectors.json`, të kontrolluar në CI), krahasimi me `@mysten/sui` për `genAddressSeed`/`generateNonce`, dhe teste e2e të SDK-së, oracle-it dhe agjentit kundër `solanaauth.so` në LiteSVM.
+
+### 11.1 Çfarë kërkon pronari i produktit për devnet
+
+1. Secret-i `DEVNET_DEPLOYER_KEYPAIR` (dhe opsionalisht `DEVNET_SOLANAAUTH_PROGRAM_KEYPAIR` për një Program ID të qëndrueshëm), pastaj Actions → ci → Run workflow → `devnet`. Raporti del te `results/devnet-solanaauth.md`.
+2. Një OAuth client ID i Google (Web) me redirect `http://localhost:5173` dhe domenin e dashboard-it. Apple kërkon Apple Developer account (Services ID).
+3. Hosting për prover-in (≥ 16 GB RAM, ~3 s CPU për provë) dhe salt service-in, me `SALT_MASTER_SEED` në një secret manager me backup.
+

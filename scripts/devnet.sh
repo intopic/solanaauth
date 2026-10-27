@@ -37,3 +37,21 @@ cargo run -q -p bench --bin export_ix -- target/devnet-ix.json
 mkdir -p results
 (cd scripts/devnet && npm ci --silent --no-audit --no-fund)
 node scripts/devnet/run.mjs "$PROGRAM_ID" target/devnet-ix.json results/devnet-report.md
+
+# --- solanaauth (M4): deploy, config dhe JWK-të e Google/Apple për quickstart-in ---
+SA_SO=programs/solanaauth/target/deploy/solanaauth.so
+if [ ! -f "$SA_SO" ]; then
+  cargo build-sbf --manifest-path programs/solanaauth/Cargo.toml
+fi
+SA_ARGS=()
+if [ -n "${DEVNET_SOLANAAUTH_PROGRAM_KEYPAIR:-}" ]; then
+  SA_KEYFILE="$(mktemp)"
+  printf '%s' "$DEVNET_SOLANAAUTH_PROGRAM_KEYPAIR" > "$SA_KEYFILE"
+  SA_ARGS=(--program-id "$SA_KEYFILE")
+fi
+solana program deploy "${SA_ARGS[@]}" --output json "$SA_SO" | tee /tmp/deploy-sa.json
+[ -n "${SA_KEYFILE:-}" ] && rm -f "$SA_KEYFILE"
+SA_PROGRAM_ID="$(python3 -c 'import json;print(json.load(open("/tmp/deploy-sa.json"))["programId"])')"
+npm ci --no-audit --no-fund
+npm run build -w sdk/core -w services/jwk-oracle
+node examples/quickstart/scripts/setup-devnet.mjs "$SA_PROGRAM_ID" "$KEYFILE" results/devnet-solanaauth.md

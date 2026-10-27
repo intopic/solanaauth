@@ -1,3 +1,4 @@
+import { Buffer } from "buffer";
 /**
  * Ndërtuesit e instruksioneve të `solanaauth`. Formati është i njëjtë me
  * `programs/solanaauth/src/{processor,execute,authority}.rs`; vektorët e testit

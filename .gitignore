@@ -10,3 +10,5 @@ test-ledger/
 id.json
 .env
 dist/
+*.zkey
+.env.local

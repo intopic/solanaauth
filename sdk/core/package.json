@@ -1,7 +1,7 @@
 {
   "name": "@solanaauth/core",
   "version": "0.1.0",
-  "description": "SDK bazë: hyrja zkLogin, portofoli PDA, sesionet me politika dhe passkey për programin solanaauth",
+  "description": "SDK baz\u00eb: hyrja zkLogin, portofoli PDA, sesionet me politika dhe passkey p\u00ebr programin solanaauth",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -20,6 +20,7 @@
     "@noble/curves": "1.9.7",
     "@noble/hashes": "1.8.0",
     "@solana/web3.js": "1.98.4",
+    "buffer": "6.0.3",
     "poseidon-lite": "0.3.0"
   },
   "devDependencies": {
