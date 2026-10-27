@@ -200,10 +200,10 @@ fn write_cu_report() {
     for (fixture, c) in bench::negative::cases() {
         let o = svm.run(c.data);
         let detail = o.err.clone().unwrap_or_else(|| "OK".into());
-        let detail = detail
-            .replace("InstructionError(1, ", "")
-            .trim_end_matches(')')
-            .to_string();
+        let detail = match detail.strip_prefix("InstructionError(1, ") {
+            Some(rest) => rest.strip_suffix(')').unwrap_or(rest).to_string(),
+            None => detail,
+        };
         report.negatives.push(NegativeCase {
             fixture,
             case: c.label,
