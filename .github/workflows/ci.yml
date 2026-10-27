@@ -1,0 +1,114 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      devnet:
+        description: "Deploy në devnet dhe ekzekuto një transaksion real"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-and-bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check whether the on-chain program exists yet
+        id: program
+        run: |
+          if [ -f programs/zklogin-verifier/Cargo.toml ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::programs/zklogin-verifier/Cargo.toml mungon ende — build-sbf anashkalohet."
+          fi
+
+      - name: Install Solana CLI (Anza)
+        if: steps.program.outputs.exists == 'true'
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+
+      - name: Build program (SBF)
+        if: steps.program.outputs.exists == 'true'
+        run: |
+          solana --version
+          cargo build-sbf --manifest-path programs/zklogin-verifier/Cargo.toml
+
+      - name: Off-chain reference verification
+        run: cargo test -p reference -- --nocapture
+
+      - name: Measure compute units
+        run: cargo test -p bench -- --nocapture
+
+      - name: Update README results table
+        run: python3 scripts/update_readme.py
+
+      - name: Job summary
+        run: cat results/cu-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cu-report
+          path: results/
+
+      - name: Publish results to main
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          git add results/ README.md
+          if git diff --cached --quiet; then
+            echo "Asnjë ndryshim në rezultate."
+          else
+            git commit -m "ci: update CU results [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Create GitHub Release (tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" results/cu-report.md results/cu-report.json \
+            --title "$GITHUB_REF_NAME" --notes-file results/cu-report.md
+
+  devnet:
+    # Manual: Actions → ci → Run workflow → devnet = true
+    if: github.event_name == 'workflow_dispatch' && inputs.devnet
+    needs: test-and-bench
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Solana CLI (Anza)
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      - name: Deploy and run on devnet
+        env:
+          # Vetëm çelës devnet pa vlerë reale. Asnjë çelës mainnet.
+          DEVNET_DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
+        run: bash scripts/devnet.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: devnet-report
+          path: results/devnet-*.md
+          if-no-files-found: ignore

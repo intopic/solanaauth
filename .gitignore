@@ -1,0 +1,11 @@
+/target
+**/target
+node_modules/
+.anchor/
+test-ledger/
+*.log
+.DS_Store
+# Asnjë çelës nuk futet në repo
+*keypair*.json
+id.json
+.env

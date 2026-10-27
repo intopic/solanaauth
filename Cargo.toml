@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["reference", "bench"]
+# Programi on-chain ndërtohet veçmas me `cargo build-sbf`
+exclude = ["programs/zklogin-verifier"]
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/intopic/solanaauth"

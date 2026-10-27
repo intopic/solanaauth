@@ -1,0 +1,10 @@
+[package]
+name = "bench"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Matjet e compute units (CU) për programin zklogin-verifier"
+
+[dependencies]
+# Detyra 6: shto mollusk-svm ose litesvm për të ekzekutuar programin .so

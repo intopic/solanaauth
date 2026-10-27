@@ -1,0 +1,10 @@
+[package]
+name = "reference"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Verifikimi off-chain i provës zkLogin me kodin e Sui-t (e vërteta referencë)"
+
+[dependencies]
+# Detyra 2: shto këtu sui-crypto (feature zklogin) ose fastcrypto-zkp

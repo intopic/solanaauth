@@ -1,0 +1,9 @@
+{
+  "verdict": "PA MATJE",
+  "measurements": [
+    { "name": "verify_proof", "cu": null },
+    { "name": "poseidon (secili hap)", "cu": null },
+    { "name": "modulus RSA hash", "cu": null },
+    { "name": "verify_full", "cu": null }
+  ]
+}
