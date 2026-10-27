@@ -1,31 +1,31 @@
 {
   "instructions": [
     {
-      "cu": 7728,
+      "cu": 7729,
       "name": "init_config",
       "note": "një herë, nga upgrade authority",
       "tx_bytes": 495
     },
     {
-      "cu": 25467,
+      "cu": 25468,
       "name": "propose_jwk",
       "note": "oracle; Poseidon i modulus-it 2048-bit on-chain + krijimi i llogarisë",
       "tx_bytes": 751
     },
     {
-      "cu": 217,
+      "cu": 218,
       "name": "apply_jwk",
       "note": "kushdo, pas timelock-ut",
       "tx_bytes": 243
     },
     {
-      "cu": 338,
+      "cu": 339,
       "name": "update_config",
       "note": "admin",
       "tx_bytes": 429
     },
     {
-      "cu": 109494,
+      "cu": 109496,
       "name": "create_wallet",
       "note": "Google, vk mainnet: verify_full + PDA + krijimi i Wallet",
       "tx_bytes": 894
@@ -37,22 +37,22 @@
       "tx_bytes": 1124
     },
     {
-      "cu": 2521,
+      "cu": 2578,
       "name": "execute: transfer SOL",
       "note": "1 CPI te System, brenda limitit",
-      "tx_bytes": 493
+      "tx_bytes": 494
     },
     {
-      "cu": 2870,
+      "cu": 2918,
       "name": "execute: transfer token",
       "note": "1 CPI te SPL Token, matja para/pas",
-      "tx_bytes": 525
+      "tx_bytes": 526
     },
     {
-      "cu": 4537,
+      "cu": 4606,
       "name": "execute: SOL + token",
       "note": "2 CPI në një instruksion",
-      "tx_bytes": 611
+      "tx_bytes": 612
     },
     {
       "cu": 530,
@@ -61,13 +61,13 @@
       "tx_bytes": 309
     },
     {
-      "cu": 111881,
+      "cu": 111883,
       "name": "create_wallet + open_session",
       "note": "hyrja e parë në një instruksion (vk test, allow_test_vk = 1)",
       "tx_bytes": 1000
     },
     {
-      "cu": 103845,
+      "cu": 103939,
       "name": "revoke_session (zk)",
       "note": "me provë të re zkLogin",
       "tx_bytes": 844
@@ -85,13 +85,13 @@
       "tx_bytes": 999
     },
     {
-      "cu": 186,
+      "cu": 197,
       "name": "revoke_session (self)",
       "note": "nga çelësi i sesionit",
       "tx_bytes": 374
     },
     {
-      "cu": 324,
+      "cu": 323,
       "name": "revoke_jwk",
       "note": "admin, menjëherë",
       "tx_bytes": 373
@@ -269,5 +269,5 @@
       "rejected": true
     }
   ],
-  "program_size_bytes": 70528
+  "program_size_bytes": 89808
 }

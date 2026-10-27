@@ -4,22 +4,22 @@ Të gjitha numrat vijnë nga LiteSVM në CI, me programin e ndërtuar me `cargo 
 
 | Instruksioni | CU | Tx (bytes) | Shënim |
 |---|---:|---:|---|
-| init_config | 7,728 | 495 | një herë, nga upgrade authority |
-| propose_jwk | 25,467 | 751 | oracle; Poseidon i modulus-it 2048-bit on-chain + krijimi i llogarisë |
-| apply_jwk | 217 | 243 | kushdo, pas timelock-ut |
-| update_config | 338 | 429 | admin |
-| create_wallet | 109,494 | 894 | Google, vk mainnet: verify_full + PDA + krijimi i Wallet |
+| init_config | 7,729 | 495 | një herë, nga upgrade authority |
+| propose_jwk | 25,468 | 751 | oracle; Poseidon i modulus-it 2048-bit on-chain + krijimi i llogarisë |
+| apply_jwk | 218 | 243 | kushdo, pas timelock-ut |
+| update_config | 339 | 429 | admin |
+| create_wallet | 109,496 | 894 | Google, vk mainnet: verify_full + PDA + krijimi i Wallet |
 | open_session | 108,147 | 1124 | verify_full + identiteti + Session (2 programe, 2 limite) |
-| execute: transfer SOL | 2,521 | 493 | 1 CPI te System, brenda limitit |
-| execute: transfer token | 2,870 | 525 | 1 CPI te SPL Token, matja para/pas |
-| execute: SOL + token | 4,537 | 611 | 2 CPI në një instruksion |
+| execute: transfer SOL | 2,578 | 494 | 1 CPI te System, brenda limitit |
+| execute: transfer token | 2,918 | 526 | 1 CPI te SPL Token, matja para/pas |
+| execute: SOL + token | 4,606 | 612 | 2 CPI në një instruksion |
 | close_session | 530 | 309 | pas skadimit; rent-i kthehet te vault-i |
-| create_wallet + open_session | 111,881 | 1000 | hyrja e parë në një instruksion (vk test, allow_test_vk = 1) |
-| revoke_session (zk) | 103,845 | 844 | me provë të re zkLogin |
+| create_wallet + open_session | 111,883 | 1000 | hyrja e parë në një instruksion (vk test, allow_test_vk = 1) |
+| revoke_session (zk) | 103,939 | 844 | me provë të re zkLogin |
 | close_session (pas revokimit) | 527 | 309 |  |
 | open_session (vk test) | 107,073 | 999 |  |
-| revoke_session (self) | 186 | 374 | nga çelësi i sesionit |
-| revoke_jwk | 324 | 373 | admin, menjëherë |
+| revoke_session (self) | 197 | 374 | nga çelësi i sesionit |
+| revoke_jwk | 323 | 373 | admin, menjëherë |
 
 ### Testet negative: 34/34 të refuzuara me kodin e pritur
 
@@ -60,4 +60,4 @@ Të gjitha numrat vijnë nga LiteSVM në CI, me programin e ndërtuar me `cargo 
 | revoke_jwk nga oracle (jo admin) | `Custom(4)` |
 | open_session me JWK të revokuar | `Custom(11)` |
 
-<sub>solanaauth.so: 70,528 bytes</sub>
+<sub>solanaauth.so: 89,808 bytes</sub>

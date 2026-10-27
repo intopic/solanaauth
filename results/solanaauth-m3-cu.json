@@ -1,0 +1,164 @@
+{
+  "instructions": [
+    {
+      "cu": 105224,
+      "name": "add_passkey (zk)",
+      "note": "passkey-i i parë, me provë zkLogin",
+      "tx_bytes": 894
+    },
+    {
+      "cu": 3105,
+      "name": "add_passkey (passkey)",
+      "note": "secp256r1 + WebAuthn + nonce",
+      "tx_bytes": 667
+    },
+    {
+      "cu": 2898,
+      "name": "set_threshold",
+      "note": "1 SOL në 24 orë pa passkey",
+      "tx_bytes": 640
+    },
+    {
+      "cu": 2641,
+      "name": "execute nën prag",
+      "note": "transfer SOL, pragu ditor përditësohet",
+      "tx_bytes": 494
+    },
+    {
+      "cu": 5456,
+      "name": "execute me passkey (mbi prag)",
+      "note": "sesion + passkey",
+      "tx_bytes": 883
+    },
+    {
+      "cu": 2820,
+      "name": "remove_passkey",
+      "note": "",
+      "tx_bytes": 633
+    },
+    {
+      "cu": 105485,
+      "name": "begin_recovery (zk → passkey)",
+      "note": "humbi passkey-n; timelock 48 orë",
+      "tx_bytes": 894
+    },
+    {
+      "cu": 2781,
+      "name": "cancel_recovery (passkey)",
+      "note": "pronari anulon rikuperimin e filluar me Google",
+      "tx_bytes": 633
+    },
+    {
+      "cu": 107333,
+      "name": "begin_recovery (passkey → zk)",
+      "note": "humbi Google/salt: provë e identitetit të ri + passkey",
+      "tx_bytes": 1200
+    },
+    {
+      "cu": 104782,
+      "name": "cancel_recovery (zk)",
+      "note": "identiteti ekzistues anulon",
+      "tx_bytes": 860
+    },
+    {
+      "cu": 2889,
+      "name": "revoke_session (passkey)",
+      "note": "",
+      "tx_bytes": 666
+    },
+    {
+      "cu": 232,
+      "name": "finish_recovery",
+      "note": "kushdo, pas timelock-ut",
+      "tx_bytes": 276
+    }
+  ],
+  "negatives": [
+    {
+      "case": "add_passkey (zk) kur portofoli ka passkey",
+      "expected_code": 41,
+      "rejected": true
+    },
+    {
+      "case": "add_passkey: passkey që s'është i portofolit",
+      "expected_code": 41,
+      "rejected": true
+    },
+    {
+      "case": "add_passkey: slot i zënë",
+      "expected_code": 46,
+      "rejected": true
+    },
+    {
+      "case": "passkey: replay i të njëjtit nënshkrim (nonce)",
+      "expected_code": 42,
+      "rejected": true
+    },
+    {
+      "case": "passkey: nënshkrim P-256 i pavlefshëm",
+      "expected_code": "precompile",
+      "rejected": true
+    },
+    {
+      "case": "passkey: clientDataJSON me challenge tjetër",
+      "expected_code": 42,
+      "rejected": true
+    },
+    {
+      "case": "passkey: pa instruksionin e precompile-it",
+      "expected_code": 42,
+      "rejected": true
+    },
+    {
+      "case": "passkey: të dhëna të ndryshuara pas nënshkrimit",
+      "expected_code": 42,
+      "rejected": true
+    },
+    {
+      "case": "execute: SOL mbi pragun ditor pa passkey",
+      "expected_code": 45,
+      "rejected": true
+    },
+    {
+      "case": "execute me passkey që s'është i portofolit",
+      "expected_code": 41,
+      "rejected": true
+    },
+    {
+      "case": "remove_passkey me passkey-n e hequr",
+      "expected_code": 41,
+      "rejected": true
+    },
+    {
+      "case": "finish_recovery pa rikuperim",
+      "expected_code": 44,
+      "rejected": true
+    },
+    {
+      "case": "begin_recovery kur ka një në pritje",
+      "expected_code": 43,
+      "rejected": true
+    },
+    {
+      "case": "finish_recovery para timelock-ut",
+      "expected_code": 20,
+      "rejected": true
+    },
+    {
+      "case": "cancel_recovery me identitet që s'është ende i portofolit",
+      "expected_code": 18,
+      "rejected": true
+    },
+    {
+      "case": "execute pas revokimit me passkey",
+      "expected_code": 31,
+      "rejected": true
+    },
+    {
+      "case": "finish_recovery 1 sekondë para eta",
+      "expected_code": 20,
+      "rejected": true
+    }
+  ],
+  "program_size_bytes": 89808
+}
