@@ -21,7 +21,7 @@ const ICON = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcv
 
 class Account implements WalletAccount {
   readonly chains = SOLANA_CHAINS;
-  readonly features = ["solana:signAndSendTransaction"] as const;
+  readonly features = ["solana:signAndSendTransaction", "solanaauth:session"] as const;
   constructor(readonly vault: PublicKey) {}
   get address() {
     return this.vault.toBase58();
