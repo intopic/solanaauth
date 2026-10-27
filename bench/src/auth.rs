@@ -180,6 +180,17 @@ impl Env {
         env
     }
 
+    /// Pa program të ngarkuar dhe me çelësa fiks: për vektorët e testit të SDK-së.
+    pub fn offline() -> Self {
+        Env {
+            svm: LiteSVM::new(),
+            program_id: Address::new_from_array([9u8; 32]),
+            payer: Keypair::new_from_array([1u8; 32]),
+            admin: Keypair::new_from_array([2u8; 32]),
+            oracle: Keypair::new_from_array([3u8; 32]),
+        }
+    }
+
     pub fn program_data(&self) -> Address {
         Address::find_program_address(&[self.program_id.as_ref()], &LOADER_UPGRADEABLE).0
     }

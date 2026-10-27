@@ -1,0 +1,16 @@
+{
+  "name": "solanaauth-monorepo",
+  "private": true,
+  "license": "Apache-2.0",
+  "workspaces": [
+    "sdk/core"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "22.15.0"
+  }
+}

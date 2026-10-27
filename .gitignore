@@ -9,3 +9,4 @@ test-ledger/
 *keypair*.json
 id.json
 .env
+dist/
