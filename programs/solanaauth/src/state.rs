@@ -13,6 +13,14 @@ pub const SEED_SESSION: &[u8] = b"session";
 
 pub const DOMAIN_ZK: &[u8] = b"solanaauth:zk:v1";
 pub const DOMAIN_WALLET: &[u8] = b"solanaauth:wallet:v1";
+pub const DOMAIN_PASSKEY: &[u8] = b"solanaauth:passkey:v1";
+
+/// Dritarja e pragut ditor (D14).
+pub const THRESHOLD_WINDOW_SECS: i64 = 24 * 3600;
+
+pub const RECOVERY_NONE: u8 = 0;
+pub const RECOVERY_ADD_PASSKEY: u8 = 1;
+pub const RECOVERY_ADD_ZK: u8 = 2;
 
 pub const MAX_ZK: usize = 2;
 pub const MAX_PASSKEYS: usize = 4;
@@ -99,9 +107,11 @@ pub struct Passkey {
 
 #[repr(C)]
 pub struct Recovery {
-    /// 0 asnjë, 1 shto passkey, 2 shto identitet zk (M3).
+    /// `RECOVERY_*`.
     pub kind: u8,
-    pub _pad: [u8; 7],
+    /// Vendi (slot) që zëvendësohet.
+    pub slot: u8,
+    pub _pad: [u8; 6],
     pub eta: PodI64,
     pub data: [u8; 40],
 }
@@ -120,20 +130,34 @@ pub struct Wallet {
     pub nonce: PodU64,
     pub zk: [ZkAuthority; MAX_ZK],
     pub passkeys: [Passkey; MAX_PASSKEYS],
+    /// Daljet e SOL mbi këtë shumë brenda 24 orëve kërkojnë passkey (0 = pa prag).
     pub threshold_lamports: PodU64,
     pub recovery: Recovery,
     pub sessions_opened: PodU32,
     pub _pad2: [u8; 4],
+    pub threshold_window_start: PodI64,
+    pub threshold_spent: PodU64,
 }
 
 impl Account for Wallet {
-    const LEN: usize = 400;
+    const LEN: usize = 416;
     const DISC: u8 = 3;
 }
 
 impl Wallet {
     pub fn has_identity(&self, identity: &[u8; 32]) -> bool {
         *identity != [0u8; 32] && self.zk.iter().any(|z| &z.identity == identity)
+    }
+
+    pub fn passkey_slot(&self, pubkey: &[u8; 33]) -> Option<usize> {
+        if *pubkey == [0u8; 33] {
+            return None;
+        }
+        self.passkeys.iter().position(|p| &p.pubkey == pubkey)
+    }
+
+    pub fn has_passkey(&self) -> bool {
+        self.passkeys.iter().any(|p| p.pubkey != [0u8; 33])
     }
 }
 

@@ -1,7 +1,8 @@
 //! 7. `execute`: sesioni ekzekuton instruksione me vault-in si nënshkrues, brenda politikës.
 //!
-//! Llogaritë: `[session_key (s), wallet, session (w), vault (w), ...të tjerat]`.
-//! Data: `n_ix u8`, pastaj për çdo instruksion: `program_index u8, n_accounts u8,
+//! Llogaritë: `[session_key (s), wallet, session (w), vault (w), ...të tjerat]`; me passkey,
+//! llogaria e fundit është sysvar-i Instructions.
+//! Data: `flags u8` (bit 0: passkey, pastaj `passkey_block`), `n_ix u8`, pastaj për çdo instruksion: `program_index u8, n_accounts u8,
 //! (account_index u8, flags u8) * n, data_len u16, data`. `flags`: bit 0 writable, bit 1 signer.
 //! Indekset i referohen listës së llogarive të instruksionit `execute`.
 //!
@@ -17,7 +18,7 @@ use pinocchio::{
 use crate::error::{AuthError, Result};
 use crate::policy::{charge, is_forbidden};
 use crate::processor::SYSTEM_PROGRAM;
-use crate::state::{Session, Wallet, MAX_PROGRAMS, SEED_VAULT};
+use crate::state::{Session, Wallet, MAX_PROGRAMS, SEED_VAULT, THRESHOLD_WINDOW_SECS};
 use crate::util::{derive_pda, now, require_signer, require_writable, Account, Reader};
 
 pub const TOKEN_PROGRAM: Address =
@@ -114,6 +115,28 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
         return Err(AuthError::InvalidAccount.into());
     }
 
+    // Passkey (opsional): miraton daljet mbi pragun.
+    let mut r = Reader::new(data);
+    let flags = r.u8()?;
+    if flags > 1 {
+        return Err(AuthError::InvalidInstruction.into());
+    }
+    let passkey_ok = flags & 1 != 0;
+    if passkey_ok {
+        let client_data = crate::passkey::read_block(&mut r)?;
+        let n = accounts.len();
+        crate::authority::authorize_passkey(
+            crate::OP_EXECUTE,
+            &[flags],
+            client_data,
+            r.data,
+            &accounts[n - 1],
+            wallet_view,
+            &accounts[..n - 1],
+            program_id,
+        )?;
+    }
+
     // Matja para CPI-ve.
     let vault_before = vault.lamports();
     let mut tracked = [Tracked {
@@ -153,7 +176,6 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
         Seed::from(&bump_seed),
     ];
     let signer = Signer::from(&seeds);
-    let mut r = Reader::new(data);
     let n_ix = r.u8()?;
     if n_ix == 0 {
         return Err(AuthError::InvalidInstruction.into());
@@ -254,6 +276,29 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
         }
     }
     let sol_out = sol_in.saturating_sub(vault.lamports());
+
+    // Pragu ditor (D14): pa passkey, daljet e SOL brenda 24 orëve s'kalojnë `threshold_lamports`.
+    if !passkey_ok && sol_out > 0 {
+        let mut wd = wallet_view.try_borrow_mut()?;
+        let w = Wallet::from_bytes_mut(&mut wd)?;
+        let threshold = w.threshold_lamports.get();
+        if threshold > 0 && w.has_passkey() {
+            require_writable(wallet_view)?;
+            if now
+                >= w.threshold_window_start
+                    .get()
+                    .saturating_add(THRESHOLD_WINDOW_SECS)
+            {
+                w.threshold_window_start.set(now);
+                w.threshold_spent.set(0);
+            }
+            let total = w.threshold_spent.get().saturating_add(sol_out);
+            if total > threshold {
+                return Err(AuthError::AboveThreshold.into());
+            }
+            w.threshold_spent.set(total);
+        }
+    }
 
     let mut d = session_view.try_borrow_mut()?;
     let s = Session::from_bytes_mut(&mut d)?;
