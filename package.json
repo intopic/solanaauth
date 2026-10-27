@@ -3,16 +3,20 @@
   "private": true,
   "license": "Apache-2.0",
   "workspaces": [
+    "testing",
     "sdk/core",
     "sdk/react",
     "sdk/agent",
+    "sdk/wallet-standard",
     "services/salt",
     "services/jwk-oracle",
     "services/prover",
     "services/platform",
     "apps/dashboard",
     "apps/wallet",
-    "examples/quickstart"
+    "examples/quickstart",
+    "examples/game",
+    "examples/agent-x402"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

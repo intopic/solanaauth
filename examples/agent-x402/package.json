@@ -1,0 +1,21 @@
+{
+  "name": "solanaauth-demo-agent-x402",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo: agjent AI me limit 20 USDC/ditë që paguan me x402; refuzohet mbi limit; revokimi e ndalon menjëherë",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "server": "node server.mjs",
+    "agent": "node agent.mjs",
+    "test": "node --test --test-timeout=120000 test/*.test.mjs"
+  },
+  "dependencies": {
+    "@solana/web3.js": "1.98.4",
+    "@solanaauth/agent": "0.1.0",
+    "@solanaauth/core": "0.1.0"
+  },
+  "devDependencies": {
+    "@solanaauth/testkit": "0.1.0"
+  }
+}

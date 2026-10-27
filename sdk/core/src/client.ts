@@ -304,13 +304,18 @@ export class SolanaAuth {
     return this.send([ix], session.sessionKey, opts.feePayer ?? this.opts.feePayer);
   }
 
+  /** Instruksioni `execute` për sesionin (për adapter-ë që dërgojnë vetë). */
+  wrapExecute(session: Session, inner: TransactionInstruction[]): TransactionInstruction {
+    return ixs.execute(this.programId, session.sessionKey.publicKey, session.wallet, inner);
+  }
+
   async revoke(session: Session, opts: { feePayer?: Keypair | FeePayer } = {}): Promise<string> {
     const ix = ixs.revokeSessionSelf(this.programId, session.sessionKey.publicKey, session.wallet);
     return this.send([ix], session.sessionKey, opts.feePayer ?? this.opts.feePayer);
   }
 
   /** Nënshkruan me çelësin e sesionit dhe dërgon me paguesin e zgjedhur. */
-  async send(instructions: TransactionInstruction[], sessionKey: Keypair, payer?: Keypair | FeePayer): Promise<string> {
+  async send(instructions: TransactionInstruction[], sessionKey: Keypair, payer: Keypair | FeePayer | undefined = this.opts.feePayer): Promise<string> {
     if (payer && !(payer instanceof Keypair)) {
       const tx = await this.transaction(instructions, payer.publicKey);
       tx.partialSign(sessionKey);

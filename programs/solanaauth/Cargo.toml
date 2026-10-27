@@ -17,14 +17,17 @@ mainnet = []
 [dependencies]
 zklogin-verifier = { path = "../zklogin-verifier", features = ["no-entrypoint"] }
 groth16-solana = { git = "https://github.com/Lightprotocol/groth16-solana", rev = "ac9d959f9b14479c20c9d4f8168fa4cc47c13071" }
-pinocchio = { version = "0.10", features = ["cpi"] }
-pinocchio-system = "0.5"
-solana-address = { version = "2", features = ["syscalls", "sha2"] }
-solana-sha256-hasher = "3"
+pinocchio = { version = "=0.10.2", features = ["cpi"] }
+pinocchio-system = "=0.5.0"
+solana-address = { version = "=2.9.0", features = ["syscalls", "sha2"] }
+solana-sha256-hasher = "=3.1.0"
 
 [target.'cfg(not(target_os = "solana"))'.dependencies]
-solana-address = { version = "2", features = ["curve25519"] }
+solana-address = { version = "=2.9.0", features = ["curve25519"] }
 
 [lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ['cfg(target_os, values("solana"))']
+
+[dev-dependencies]
+proptest = "=1.12.0"

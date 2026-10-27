@@ -248,3 +248,4 @@ export async function loginAgent(o: AgentLoginOptions): Promise<{ wallet: AgentW
     server.close();
   }
 }
+export * from "./x402.js";

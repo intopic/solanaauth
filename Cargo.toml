@@ -2,7 +2,7 @@
 resolver = "2"
 members = ["reference", "bench", "scripts/vk-convert"]
 # Programi on-chain ndërtohet veçmas me `cargo build-sbf`
-exclude = ["programs/zklogin-verifier", "programs/solanaauth"]
+exclude = ["programs/zklogin-verifier", "programs/solanaauth", "programs/demo-game"]
 
 [workspace.package]
 edition = "2021"

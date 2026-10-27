@@ -30,38 +30,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.HAS_DEVNET == 'true'
       - uses: dtolnay/rust-toolchain@stable
+        if: env.HAS_DEVNET == 'true'
       - uses: Swatinem/rust-cache@v2
+        if: env.HAS_DEVNET == 'true'
         with:
           workspaces: |
             programs/zklogin-verifier
             programs/solanaauth
+            programs/demo-game
       - uses: actions/cache@v4
+        if: env.HAS_DEVNET == 'true'
         with:
           path: |
             ~/.cache/solana
             ~/.local/share/solana
           key: solana-${{ env.SOLANA_RELEASE }}-${{ runner.os }}-v1
       - name: Install Solana CLI (Anza)
+        if: env.HAS_DEVNET == 'true'
         run: |
           sh -c "$(curl -sSfL https://release.anza.xyz/${SOLANA_RELEASE}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
       - name: Build program (SBF)
+        if: env.HAS_DEVNET == 'true'
         run: |
           solana --version | tee solana-version.txt
           cargo build-sbf --manifest-path programs/zklogin-verifier/Cargo.toml
           cargo build-sbf --manifest-path programs/solanaauth/Cargo.toml
-          ls -l programs/zklogin-verifier/target/deploy/ programs/solanaauth/target/deploy/
+          cargo build-sbf --manifest-path programs/demo-game/Cargo.toml
+          ls -l programs/zklogin-verifier/target/deploy/ programs/solanaauth/target/deploy/ programs/demo-game/target/deploy/
       - name: Build solanaauth (feature mainnet, vetëm kontroll)
+        if: env.HAS_DEVNET == 'true'
         run: |
           cargo build-sbf --manifest-path programs/solanaauth/Cargo.toml --features mainnet --sbf-out-dir target/mainnet
           ls -l target/mainnet/
       - uses: actions/upload-artifact@v4
+        if: env.HAS_DEVNET == 'true'
         with:
           name: program
           path: |
             programs/zklogin-verifier/target/deploy/zklogin_verifier.so
             programs/solanaauth/target/deploy/solanaauth.so
+            programs/demo-game/target/deploy/demo_game.so
             solana-version.txt
 
   # 2. reference: verifikimi off-chain me kodin e Sui-t + konvertimi i key-ve.
@@ -69,16 +80,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.HAS_DEVNET == 'true'
       - uses: dtolnay/rust-toolchain@stable
+        if: env.HAS_DEVNET == 'true'
       - uses: Swatinem/rust-cache@v2
+        if: env.HAS_DEVNET == 'true'
       - name: Verifying keys të konvertuara janë të përditësuara
+        if: env.HAS_DEVNET == 'true'
         run: cargo run -q -p vk-convert -- --check
       - name: Off-chain reference verification (sui-crypto)
+        if: env.HAS_DEVNET == 'true'
         run: cargo test -p reference -- --nocapture
       - name: Host tests (kodi i programit kundër referencës)
+        if: env.HAS_DEVNET == 'true'
         run: cargo test -p bench --lib --test host -- --nocapture
-      - name: Unit tests solanaauth
-        run: cargo test --manifest-path programs/solanaauth/Cargo.toml
+      - name: Unit + property tests solanaauth (proptest, parsimi dhe politikat)
+        if: env.HAS_DEVNET == 'true'
+        run: cargo test --manifest-path programs/solanaauth/Cargo.toml -- --nocapture
 
   # 3. bench: programi në LiteSVM, matjet e CU dhe testet negative.
   bench:
@@ -86,29 +104,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.HAS_DEVNET == 'true'
       - uses: dtolnay/rust-toolchain@stable
+        if: env.HAS_DEVNET == 'true'
       - uses: Swatinem/rust-cache@v2
+        if: env.HAS_DEVNET == 'true'
       - uses: actions/download-artifact@v4
+        if: env.HAS_DEVNET == 'true'
         with:
           name: program
           path: artifact
       - name: Measure compute units
+        if: env.HAS_DEVNET == 'true'
         env:
           ZKLOGIN_VERIFIER_SO: ${{ github.workspace }}/artifact/programs/zklogin-verifier/target/deploy/zklogin_verifier.so
         run: |
           export SOLANA_VERSION="$(cat artifact/solana-version.txt)"
           cargo test -p bench --test cu_report -- --nocapture
       - name: solanaauth (M2, M3) — skenari, testet negative, CU
+        if: env.HAS_DEVNET == 'true'
         env:
           SOLANAAUTH_SO: ${{ github.workspace }}/artifact/programs/solanaauth/target/deploy/solanaauth.so
         run: |
           cargo test -p bench --test solanaauth -- --nocapture
           cargo test -p bench --test solanaauth_m3 -- --nocapture
       - name: Update README results table
+        if: env.HAS_DEVNET == 'true'
         run: python3 scripts/update_readme.py
       - name: Job summary
-        run: cat results/cu-report.md results/solanaauth-cu.md results/solanaauth-m3-cu.md >> "$GITHUB_STEP_SUMMARY"
+        if: env.HAS_DEVNET == 'true'
+        run: cat results/cu-report.md results/solanaauth-cu.md results/solanaauth-m3-cu.md results/solanaauth-accounts.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
+        if: env.HAS_DEVNET == 'true'
         with:
           name: cu-report
           path: |
@@ -123,31 +150,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.HAS_DEVNET == 'true'
       - uses: dtolnay/rust-toolchain@stable
+        if: env.HAS_DEVNET == 'true'
       - uses: Swatinem/rust-cache@v2
+        if: env.HAS_DEVNET == 'true'
       - uses: actions/setup-node@v4
+        if: env.HAS_DEVNET == 'true'
         with:
           node-version: 22
           cache: npm
       - uses: actions/download-artifact@v4
+        if: env.HAS_DEVNET == 'true'
         with:
           name: program
           path: artifact
       - name: SDK vectors (Rust) janë të përditësuar
+        if: env.HAS_DEVNET == 'true'
         env:
           CHECK_SDK_VECTORS: "1"
         run: cargo test -p bench --test sdk_vectors
       - run: npm ci --no-audit --no-fund
+        if: env.HAS_DEVNET == 'true'
       - name: Build
+        if: env.HAS_DEVNET == 'true'
         run: |
-          npm run build -w sdk/core -w sdk/react -w sdk/agent -w services/salt -w services/jwk-oracle -w services/prover -w services/platform
+          npm run build -w sdk/core -w sdk/react -w sdk/agent -w sdk/wallet-standard -w services/salt -w services/jwk-oracle -w services/prover -w services/platform
           export VITE_PROGRAM_ID=11111111111111111111111111111111
-          npm run build -w examples/quickstart -w apps/dashboard -w apps/wallet
+          npm run build -w examples/quickstart -w examples/game -w apps/dashboard -w apps/wallet
       - name: Test
+        if: env.HAS_DEVNET == 'true'
         env:
           SOLANAAUTH_SO: ${{ github.workspace }}/artifact/programs/solanaauth/target/deploy/solanaauth.so
+          DEMO_GAME_SO: ${{ github.workspace }}/artifact/programs/demo-game/target/deploy/demo_game.so
         run: |
-          for w in sdk/core sdk/react sdk/agent services/salt services/jwk-oracle services/prover services/platform; do
+          for w in sdk/core sdk/react sdk/agent sdk/wallet-standard services/salt services/jwk-oracle services/prover services/platform examples/game examples/agent-x402; do
             echo "::group::$w"
             (cd "$w" && node --test --test-timeout=120000 test/*.test.mjs)
             echo "::endgroup::"
@@ -160,14 +197,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: env.HAS_DEVNET == 'true'
         with:
           ref: main
       - uses: actions/download-artifact@v4
+        if: env.HAS_DEVNET == 'true'
         with:
           name: cu-report
           path: .
       - name: Publish results to main
-        if: github.ref == 'refs/heads/main'
+        if: env.HAS_DEVNET == 'true' && (github.ref == 'refs/heads/main')
         run: |
           git config user.name "ci-bot"
           git config user.email "ci-bot@users.noreply.github.com"
@@ -180,34 +219,51 @@ jobs:
             git push origin HEAD:main
           fi
       - name: Create GitHub Release (tags v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.HAS_DEVNET == 'true' && (startsWith(github.ref, 'refs/tags/v'))
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" results/cu-report.md results/cu-report.json \
             --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --notes-file results/cu-report.md
 
-  # Opsionale, manuale: Actions → ci → Run workflow → devnet = true.
+  # Devnet E2E: në çdo push në `main` (dhe manualisht: Actions → ci → Run workflow → devnet = true).
+  # Kërkon secret-in DEVNET_DEPLOYER_KEYPAIR (vetëm devnet, pa vlerë reale). Në push kërkon edhe
+  # DEVNET_PROGRAM_KEYPAIR dhe DEVNET_SOLANAAUTH_PROGRAM_KEYPAIR, që çdo push të bëjë upgrade të të
+  # njëjtave programe në vend që të krijojë programe të reja. Pa to puna kalohet me shënim.
   devnet:
-    if: github.event_name == 'workflow_dispatch' && inputs.devnet
-    needs: bench
+    if: (github.event_name == 'workflow_dispatch' && inputs.devnet) || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [bench, sdk]
     runs-on: ubuntu-latest
+    env:
+      HAS_DEVNET: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR != '' && (github.event_name == 'workflow_dispatch' || (secrets.DEVNET_PROGRAM_KEYPAIR != '' && secrets.DEVNET_SOLANAAUTH_PROGRAM_KEYPAIR != '')) }}
     steps:
+      - name: Secrets devnet
+        if: env.HAS_DEVNET != 'true'
+        run: |
+          echo "::notice::Devnet E2E u kalua: mungon DEVNET_DEPLOYER_KEYPAIR (ose, në push, DEVNET_PROGRAM_KEYPAIR / DEVNET_SOLANAAUTH_PROGRAM_KEYPAIR)."
+          echo "Devnet E2E u kalua: mungojnë secrets devnet." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v4
+        if: env.HAS_DEVNET == 'true'
       - uses: dtolnay/rust-toolchain@stable
+        if: env.HAS_DEVNET == 'true'
       - uses: Swatinem/rust-cache@v2
+        if: env.HAS_DEVNET == 'true'
       - uses: actions/setup-node@v4
+        if: env.HAS_DEVNET == 'true'
         with:
           node-version: 20
       - name: Install Solana CLI (Anza)
+        if: env.HAS_DEVNET == 'true'
         run: |
           sh -c "$(curl -sSfL https://release.anza.xyz/${SOLANA_RELEASE}/install)"
           echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
       - uses: actions/download-artifact@v4
+        if: env.HAS_DEVNET == 'true'
         with:
           name: program
           path: artifact
       - name: Deploy and run on devnet
+        if: env.HAS_DEVNET == 'true'
         env:
           # Vetëm çelësa devnet pa vlerë reale. Asnjë çelës mainnet.
           DEVNET_DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
@@ -219,16 +275,16 @@ jobs:
           cp artifact/programs/solanaauth/target/deploy/solanaauth.so programs/solanaauth/target/deploy/
           bash scripts/devnet.sh
       - name: Job summary
-        if: always()
+        if: env.HAS_DEVNET == 'true' && (always())
         run: cat results/devnet-report.md results/devnet-solanaauth.md >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: env.HAS_DEVNET == 'true' && (always())
         with:
           name: devnet-report
           path: results/devnet-*.md
           if-no-files-found: ignore
       - name: Publish devnet report to main
-        if: github.ref == 'refs/heads/main'
+        if: env.HAS_DEVNET == 'true' && (github.ref == 'refs/heads/main')
         run: |
           git config user.name "ci-bot"
           git config user.email "ci-bot@users.noreply.github.com"

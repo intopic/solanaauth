@@ -143,6 +143,8 @@ pub trait Account: Sized {
         if data.len() != Self::LEN || data[0] != Self::DISC {
             return Err(AuthError::InvalidAccount.into());
         }
+        // SAFETY: gjatësia = `LEN` = size_of::<Self>() dhe alignment 1 (assert-et në state.rs);
+        // çdo varg bytes është vlerë e vlefshme e `Self` (vetëm fusha bytes/`Pod*`).
         Ok(unsafe { &*(data.as_ptr() as *const Self) })
     }
 
@@ -150,6 +152,8 @@ pub trait Account: Sized {
         if data.len() != Self::LEN || data[0] != Self::DISC {
             return Err(AuthError::InvalidAccount.into());
         }
+        // SAFETY: gjatësia = `LEN` = size_of::<Self>() dhe alignment 1 (assert-et në state.rs);
+        // çdo varg bytes është vlerë e vlefshme e `Self` (vetëm fusha bytes/`Pod*`).
         Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
     }
 
@@ -159,6 +163,8 @@ pub trait Account: Sized {
             return Err(AuthError::AlreadyInitialized.into());
         }
         data[0] = Self::DISC;
+        // SAFETY: gjatësia = `LEN` = size_of::<Self>() dhe alignment 1 (assert-et në state.rs);
+        // çdo varg bytes është vlerë e vlefshme e `Self` (vetëm fusha bytes/`Pod*`).
         Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
     }
 }

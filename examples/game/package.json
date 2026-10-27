@@ -1,0 +1,29 @@
+{
+  "name": "solanaauth-demo-game",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo: lojë në devnet me hyrje Google dhe sesion 24 orë vetëm për programin e lojës, pa konfirmime",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5176",
+    "build": "tsc -p tsconfig.lib.json && tsc --noEmit -p tsconfig.json && vite build",
+    "test": "tsc -p tsconfig.lib.json && node --test --test-timeout=120000 test/*.test.mjs"
+  },
+  "dependencies": {
+    "@solana/web3.js": "1.98.4",
+    "@solanaauth/core": "0.1.0",
+    "@solanaauth/react": "0.1.0",
+    "buffer": "6.0.3",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@solanaauth/platform": "0.1.0",
+    "@solanaauth/testkit": "0.1.0",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.3.4",
+    "vite": "5.4.11"
+  }
+}

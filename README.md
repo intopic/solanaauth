@@ -7,6 +7,20 @@
 [![ci](https://github.com/intopic/solanaauth/actions/workflows/ci.yml/badge.svg)](https://github.com/intopic/solanaauth/actions/workflows/ci.yml)
 · Licenca: [Apache-2.0](LICENSE)
 
+## Fillo këtu
+
+| | |
+|---|---|
+| Integro në 10 minuta | [`docs/QUICKSTART.md`](docs/QUICKSTART.md) |
+| Shembuj: lojë, pagesë, agjent x402, fee payer (Kora, serveri, paymaster) | [`docs/SHEMBUJ.md`](docs/SHEMBUJ.md) |
+| Self-host: programi, prover-i, salt-i, oracle-i | [`docs/SELF-HOST.md`](docs/SELF-HOST.md) |
+| Siguria, modeli i kërcënimeve, invariantet | [`docs/SECURITY.md`](docs/SECURITY.md) |
+| `signMessage` për portofolin PDA (SAA-1271) | [`docs/SIGN-MESSAGE.md`](docs/SIGN-MESSAGE.md) |
+| Dizajni dhe regjistri i vendimeve | [`docs/DIZAJNI.md`](docs/DIZAJNI.md) |
+| Matjet (CU, rent, prova) | [`docs/MATJET.md`](docs/MATJET.md) · [`results/`](results/) |
+
+**Gjendja:** M0–M6 të ndërtuara, vetëm devnet. Kodi s'është audituar ende.
+
 ## Harta e projektit
 
 ```mermaid
@@ -136,38 +150,41 @@ Provë nga prover-dev-v2 (qarku v2) mbi një JWT nga jwt-tester.mystenlabs.com m
 
 ```text
 solanaauth/
-├── programs/zklogin-verifier/    # programi Solana (native, pinocchio): verify_proof, verify_full
-├── reference/                    # verifikimi off-chain me sui-crypto (e vërteta referencë)
-├── fixtures/                     # 3 prova zkLogin (Google mainnet v1, dev v1, dev v2) + verifying keys
-├── bench/                        # testet në host + matjet e CU në LiteSVM → results/
-├── scripts/                      # vk-convert (Detyra 3), update_readme.py, devnet.sh + devnet/run.mjs
-├── results/                      # cu-report.json + cu-report.md (i përditësuar nga CI)
-├── docs/HAPI-1-BRIEF.md          # brief-i i developer-it
-├── docs/HAPI-1-RAPORT.md         # raporti GO / NO-GO
-└── .github/workflows/ci.yml
+├── programs/zklogin-verifier/  # Hapi 1: verifikuesi Groth16 + Poseidon (librari e solanaauth)
+├── programs/solanaauth/        # programi: config, JWK registry, portofoli, sesionet, execute, passkey, rikuperimi
+├── programs/demo-game/         # programi i lojës demo
+├── sdk/core · sdk/react · sdk/agent · sdk/wallet-standard
+├── services/salt · services/prover · services/jwk-oracle · services/platform (paymaster, faturimi)
+├── apps/dashboard · apps/wallet  # dashboard-i i developer-it dhe faqja e portofolit
+├── examples/quickstart · examples/game · examples/agent-x402
+├── testing/                    # LiteSVM + programet e vërteta për testet JS
+├── reference/ · fixtures/ · bench/   # verifikimi referencë, provat, matjet e CU dhe testet negative
+├── scripts/                    # devnet.sh, prover-bench.mjs, update_readme.py
+├── results/                    # vetëm numra nga CI
+└── docs/
 ```
 
 ## Si riprodhohet
 
 ```bash
-# Rust stable, Solana CLI (Anza) 4.x, Node.js 20+ (vetëm për devnet)
-sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
-
-cargo run -p vk-convert -- --check                          # Detyra 3: key-t e konvertuara janë në rregull
-cargo test -p reference -- --nocapture                      # Detyra 2: sui-crypto i pranon provat
-cargo test -p bench --lib --test host -- --nocapture        # kodi i programit në host == referenca, bit për bit
-cargo build-sbf --manifest-path programs/zklogin-verifier/Cargo.toml
-cargo test -p bench --test cu_report -- --nocapture         # Detyra 6–7: CU në LiteSVM + testet negative → results/
+# Rust stable, Solana CLI (Anza) 4.x, Node.js 20+
+cargo build-sbf --manifest-path programs/solanaauth/Cargo.toml
+cargo build-sbf --manifest-path programs/demo-game/Cargo.toml
+cargo test --manifest-path programs/solanaauth/Cargo.toml           # unit + property tests
+cargo test -p bench --test solanaauth --test solanaauth_m3 -- --nocapture  # LiteSVM: skenarët, testet negative, CU, rent
+npm ci && npm run build --workspaces --if-present
+(cd examples/game && node --test test/*.test.mjs)                  # dhe çdo workspace tjetër me test/
 ```
 
 ## CI
 
 Workflow-i [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
 
-1. **build** — `cargo build-sbf` për programin; `.so` ngarkohet si artifact.
-2. **reference** — `vk-convert --check`, `cargo test -p reference` dhe testet në host.
-3. **bench** — ngarkon `.so` në LiteSVM, mat CU, teston rastet negative, shkruan `results/cu-report.{json,md}`, i shfaq në Job Summary dhe i ngarkon si artifact.
-4. **publish** — në `main` bën commit të `results/` dhe të tabelës më sipër; në tag `v*` krijon një GitHub Release me raportin.
-5. **devnet** (manuale) — *Actions → ci → Run workflow → devnet*: deploy në devnet me secret-in `DEVNET_DEPLOYER_KEYPAIR` (dhe opsionalisht `DEVNET_PROGRAM_KEYPAIR` për adresë të qëndrueshme), ekzekuton instruksionet e provave referencë dhe shkruan `results/devnet-report.md` me nënshkrimet.
+1. **build**: `cargo build-sbf` për `zklogin-verifier`, `solanaauth` (edhe me `--features mainnet`) dhe `demo-game`.
+2. **reference**: verifikimi off-chain me sui-crypto, testet në host, unit dhe property tests të `solanaauth`.
+3. **bench**: programet në LiteSVM; CU, testet negative, madhësia dhe rent-i i llogarive → `results/`.
+4. **sdk**: build dhe teste për SDK-të, shërbimet, dashboard-in, faqen e portofolit dhe demot, kundër programit të vërtetë.
+5. **publish**: në `main` bën commit të `results/` dhe të tabelës më sipër; në tag `v*` krijon një GitHub Release.
+6. **devnet**: në çdo push në `main` (dhe manualisht) bën upgrade të programeve në devnet, sinkronizon JWK-të e Google/Apple dhe ekzekuton transaksione reale. Kërkon secrets devnet (`DEVNET_DEPLOYER_KEYPAIR`, `DEVNET_PROGRAM_KEYPAIR`, `DEVNET_SOLANAAUTH_PROGRAM_KEYPAIR`); pa to puna kalohet me shënim (DIZAJNI D37).
 
-**Siguria:** asnjë çelës mainnet në repo apo në Secrets. I vetmi secret është `DEVNET_DEPLOYER_KEYPAIR`, një çelës devnet pa vlerë reale.
+**Siguria:** asnjë çelës mainnet në repo apo në Secrets. Secrets vetëm për devnet, çelësa pa vlerë reale.

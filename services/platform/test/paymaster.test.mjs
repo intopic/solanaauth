@@ -5,7 +5,7 @@ import { Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction 
 import * as sa from "@solanaauth/core";
 
 import { MemoryStore, Paymaster, Platform, loadPricing } from "../dist/index.js";
-import { A, FX, available, world } from "./world.mjs";
+import { A, FX, available, world } from "@solanaauth/testkit";
 
 const pricing = loadPricing(new URL("../../../config/pricing.json", import.meta.url).pathname);
 

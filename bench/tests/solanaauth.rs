@@ -470,7 +470,40 @@ fn solanaauth_m2() {
     let r = env.send(&[ix], &[&eph]);
     out.fail("open_session me JWK të revokuar", 11, r);
 
+    // Madhësitë dhe rent-i i llogarive, nga llogaritë e krijuara në këtë skenar.
+    let accounts: Vec<(&str, Address, &str)> = vec![
+        ("Config", env.config(), "një për program"),
+        ("Jwk", gjwk, "një për (iss, kid); paguan oracle/admini"),
+        ("Wallet", gwallet, "një për përdorues; rent-i paguhet një herë"),
+        ("Vault", gvault, "pa të dhëna (D4); mban SOL-in e përdoruesit"),
+        ("Session", dsession, "një për pajisje/agjent; rent-i kthehet me `close_session`"),
+    ];
+    let rows: Vec<(String, usize, u64, String)> = accounts
+        .into_iter()
+        .filter_map(|(name, a, note)| {
+            let acc = env.svm.get_account(&a)?;
+            let len = acc.data.len();
+            Some((name.to_string(), len, env.svm.minimum_balance_for_rent_exemption(len), note.to_string()))
+        })
+        .collect();
+    assert!(rows.iter().any(|r| r.0 == "Wallet") && rows.iter().any(|r| r.0 == "Session"));
     write_report(&out, &so);
+    write_accounts(&rows);
+}
+
+fn write_accounts(rows: &[(String, usize, u64, String)]) {
+    let mut md = String::from("## Llogaritë e `solanaauth`: madhësia dhe rent-i\n\n");
+    md.push_str("Lexuar nga llogaritë që krijon skenari M2 në LiteSVM (CI), me rent-in e rrjetit (minimumi pa rent).\n\n");
+    md.push_str("| Llogaria | Bytes | Rent (lamports) | Rent (SOL) | Shënim |\n|---|---:|---:|---:|---|\n");
+    for (name, len, rent, note) in rows {
+        let _ = writeln!(md, "| `{name}` | {len} | {} | {:.6} | {note} |", fmt_num(*rent), *rent as f64 / 1e9);
+    }
+    let json = serde_json::json!(rows.iter().map(|(n, l, r, _)| serde_json::json!({"account": n, "bytes": l, "rent_lamports": r})).collect::<Vec<_>>());
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../results");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("solanaauth-accounts.md"), &md).unwrap();
+    std::fs::write(dir.join("solanaauth-accounts.json"), serde_json::to_string_pretty(&json).unwrap() + "\n").unwrap();
+    println!("{md}");
 }
 
 fn fmt_num(n: u64) -> String {
