@@ -227,6 +227,12 @@ Propozimi **SAA-1271** (si ERC-1271):
 | D30 | Faqja e portofolit: tërheqja kërkon sesion (Google/Apple); me passkey vetëm revokim, prag, passkey dhe rikuperim; kur ka passkey, tërheqjet nënshkruhen edhe me passkey | `execute` kërkon sesion (D3). Pragu ditor mbron SOL; token-at mbrohen vetëm nga limitet e sesionit, prandaj faqja kërkon passkey kur ekziston (kufizim i njohur, te SECURITY.md) |
 | D31 | Passkey-t e faqes së portofolit kanë `user.id` = adresa e portofolit | hyrja vetëm me passkey gjen portofolin pa server; çelësi publik gjendet duke verifikuar nënshkrimin kundër passkey-ve të portofolit |
 | D32 | Pas rikuperimit me identitet të ri, SDK-ja e gjen portofolin me `getProgramAccounts` (identiteti te offset 56/96) | adresa e portofolit varet nga identiteti fillestar (seksioni 4) dhe nuk ndryshon |
+| D33 | Sesioni i lojës demo lejon vetëm programin e lojës dhe s'ka asnjë limit aseti | deny by default (D5): sesioni s'mund të lëvizë asnjë SOL apo token; 24 orë veprime pa konfirmim pa asnjë rrezik për fondet |
+| D34 | x402: facilitator-i është fee payer (`extra.feePayer`), agjenti kontrollon limitin lokalisht para se të paguajë, facilitator-i pranon vetëm `execute` me një `transferChecked` te `payTo` me shumën e saktë | skema `exact` e x402 në Solana; kontrolli lokal jep gabim të qartë, kontrolli përfundimtar mbetet on-chain; D25 e bën të pamundur përdorimin e fee payer-it brenda `execute` |
+| D35 | Wallet Standard: vetëm `signAndSendTransaction` dhe `signMessage`; pa `signTransaction`; veçori shtesë `solanaauth:session`; tx me address lookup tables refuzohen | një PDA s'mund të nënshkruajë një tx jashtë programit; verifikuesi i SAA-1271 ka nevojë për `wallet` dhe `session`; ALT do të fshihnin llogari nga kontrolli i nënshkruesve |
+| D36 | Koha e provës (p50/p95) matet me `scripts/prover-bench.mjs`, jo në CI | prova kërkon një JWT të freskët me nonce-in e një çelësi të ri, që merret vetëm me një hyrje reale në shfletues; një JWT apo token i ruajtur në Secrets do të ishte kredencial i vërtetë. Numrat lokalë s'shkruhen në `results/` |
+| D37 | Devnet E2E në çdo push në `main` vetëm kur ekzistojnë çelësat devnet të programeve (upgrade, jo program i ri); përndryshe puna kalohet me shënim | një deploy i ri në çdo push do të krijonte një Program ID të ri dhe do të harxhonte ~1.3 SOL devnet; hyrja e plotë me Google mbulohet në CI nga LiteSVM me programin e vërtetë, sepse në devnet kërkon një person |
+| D38 | Varësitë e programeve me `=` në `Cargo.toml`, `groth16-solana` në commit të fiksuar, `Cargo.lock` dhe `package-lock.json` në repo | build i riprodhueshëm për auditimin; çdo përditësim është ndryshim i qartë në diff |
 
 ## 11. SDK dhe shërbimet (M4)
 
@@ -260,3 +266,15 @@ Testet: vektorët Rust↔TS (`fixtures/sdk-vectors.json`, të kontrolluar në CI
 Paymaster-i është OFF si parazgjedhje. Pa të, paguan përdoruesi (çelësi i sesionit), serveri i aplikacionit (`appServerFeePayer`, i njëjti protokoll si paymaster-i) ose Kora. Testi `services/platform/test/demo-paymaster.test.mjs` bën të njëjtën hyrje dhe `execute` me paymaster ON dhe OFF kundër programit të vërtetë.
 
 Çmimet janë vetëm te `config/pricing.json`. Çelësat e Stripe dhe çelësi i paymaster-it vijnë nga mjedisi; në këtë fazë çelësi i paymaster-it është vetëm devnet.
+
+## 13. Demot, siguria dhe gatishmëria për auditim (M6)
+
+| Pjesa | Ku |
+|---|---|
+| Lojë demo (sesion 24h, pa konfirmime, paymaster ON/OFF) | `programs/demo-game`, `examples/game` |
+| Agjent AI me 20 USDC/ditë që paguan me x402 | `sdk/agent/src/x402.ts`, `examples/agent-x402` |
+| Wallet Standard + `signMessage` (SAA-1271) | `sdk/wallet-standard`, `sdk/core/src/message.ts`, `docs/SIGN-MESSAGE.md` |
+| Modeli i kërcënimeve, invariantet, `unsafe` | `docs/SECURITY.md` |
+| Teste property (parsimi, politikat, limitet) | `programs/solanaauth/tests/props.rs` |
+| Quickstart, shembuj, self-host, matjet | `docs/QUICKSTART.md`, `docs/SHEMBUJ.md`, `docs/SELF-HOST.md`, `docs/MATJET.md` |
+| Mjedisi i përbashkët i testeve JS (LiteSVM + programet e vërteta) | `testing/` (`@solanaauth/testkit`) |

@@ -374,6 +374,7 @@ pub fn finish_recovery(
 #[inline(always)]
 fn pinocchio_log(_msg: &str) {
     #[cfg(target_os = "solana")]
+    // SAFETY: syscall-i lexon `len` bytes nga një `&str` i vlefshëm.
     unsafe {
         pinocchio::syscalls::sol_log_(_msg.as_ptr(), _msg.len() as u64)
     };

@@ -13,6 +13,8 @@ const config = {
   programId: new PublicKey(env.VITE_PROGRAM_ID),
   proverUrl: env.VITE_PROVER_URL,
   saltUrl: env.VITE_SALT_URL,
+  // Prover-i dev i Mysten (verifying key test): vetëm devnet, ku `config.allow_test_vk = true` (D20).
+  vkTest: env.VITE_VK_TEST === "true",
 };
 
 // Sesioni: vetëm System Program, 0.5 SOL në ditë, 24 orë.

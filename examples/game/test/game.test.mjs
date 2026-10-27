@@ -11,6 +11,7 @@ import { A, GAME_PROGRAM_ID, GAME_SO, available, fixtureLogin, world } from "@so
 import { decodeScore, join, play, playerState } from "../lib/game.js";
 
 const ok = available && existsSync(GAME_SO);
+if (!ok && process.env.CI) throw new Error(`mungon ${GAME_SO}`);
 if (!ok && process.env.CI) throw new Error("mungojnë programet");
 const pricing = loadPricing(new URL("../../../config/pricing.json", import.meta.url).pathname);
 

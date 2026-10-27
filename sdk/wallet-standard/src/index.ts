@@ -10,7 +10,7 @@
  */
 import type { SolanaSignAndSendTransactionFeature, SolanaSignAndSendTransactionMethod, SolanaSignMessageFeature, SolanaSignMessageMethod } from "@solana/wallet-standard-features";
 import { PublicKey, Transaction, TransactionInstruction, VersionedTransaction } from "@solana/web3.js";
-import { Session, SolanaAuth, signMessage } from "@solanaauth/core";
+import { SIGNATURE_TYPE, Session, SolanaAuth, signMessage } from "@solanaauth/core";
 import type { Wallet, WalletAccount, WalletIcon } from "@wallet-standard/base";
 import type { StandardConnectFeature, StandardConnectMethod, StandardDisconnectFeature, StandardEventsFeature, StandardEventsListeners, StandardEventsOnMethod } from "@wallet-standard/features";
 import { registerWallet } from "@wallet-standard/wallet";
@@ -51,6 +51,20 @@ export function instructionsOf(bytes: Uint8Array): { instructions: TransactionIn
   return { instructions, feePayer: keys[0] };
 }
 
+/**
+ * Veçori shtesë: adresat që i duhen verifikuesit të `signMessage` (SAA-1271). Vault-i që sheh dApp-i
+ * s'mjafton, sepse nënshkruan sesioni i portofolit.
+ */
+export const SESSION_FEATURE = "solanaauth:session" as const;
+export type SolanaAuthSessionFeature = {
+  [SESSION_FEATURE]: {
+    version: "1.0.0";
+    signatureType: typeof SIGNATURE_TYPE;
+    programId: string;
+    getSession(): { wallet: string; session: string; vault: string; expiresAt: number } | null;
+  };
+};
+
 const COMPUTE_BUDGET = new PublicKey("ComputeBudget111111111111111111111111111111");
 
 export class SolanaAuthWallet implements Wallet {
@@ -73,13 +87,22 @@ export class SolanaAuthWallet implements Wallet {
     return this.#session ? [new Account(this.#session.vault)] : [];
   }
 
-  get features(): StandardConnectFeature & StandardDisconnectFeature & StandardEventsFeature & SolanaSignAndSendTransactionFeature & SolanaSignMessageFeature {
+  get features(): StandardConnectFeature & StandardDisconnectFeature & StandardEventsFeature & SolanaSignAndSendTransactionFeature & SolanaSignMessageFeature & SolanaAuthSessionFeature {
     return {
       "standard:connect": { version: "1.0.0", connect: this.#connect },
       "standard:disconnect": { version: "1.0.0", disconnect: async () => this.#set(null) },
       "standard:events": { version: "1.0.0", on: this.#on },
       "solana:signAndSendTransaction": { version: "1.0.0", supportedTransactionVersions: ["legacy", 0], signAndSendTransaction: this.#signAndSend },
       "solana:signMessage": { version: "1.0.0", signMessage: this.#signMessage },
+      [SESSION_FEATURE]: {
+        version: "1.0.0",
+        signatureType: SIGNATURE_TYPE,
+        programId: this.auth.programId.toBase58(),
+        getSession: () => {
+          const s = this.#session;
+          return s && { wallet: s.wallet.toBase58(), session: s.session.toBase58(), vault: s.vault.toBase58(), expiresAt: s.expiresAt };
+        },
+      },
     };
   }
 

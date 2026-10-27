@@ -59,7 +59,9 @@ test("Wallet Standard: connect, signAndSendTransaction (legacy + v0), signMessag
   // signMessage: verifikim SAA-1271 me sesionin on-chain.
   const message = new TextEncoder().encode("Hyr në dApp: nonce 42");
   const [m] = await wallet.features["solana:signMessage"].signMessage({ account, message });
-  const sig = { wallet: session.wallet, session: session.session, signature: m.signature };
+  const info = wallet.features["solanaauth:session"].getSession();
+  assert.equal(info.vault, account.address);
+  const sig = { wallet: new PublicKey(info.wallet), session: new PublicKey(info.session), signature: m.signature };
   assert.deepEqual(await sa.verifySessionMessage(connection, w.programId, sig, message, 2), { valid: true });
   assert.equal((await sa.verifySessionMessage(connection, w.programId, sig, new TextEncoder().encode("tjetër"), 2)).valid, false);
   assert.match((await sa.verifySessionMessage(connection, w.programId, sig, message, 100)).reason, /skaduar/);
