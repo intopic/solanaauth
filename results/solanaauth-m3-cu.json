@@ -19,13 +19,13 @@
       "tx_bytes": 640
     },
     {
-      "cu": 2641,
+      "cu": 2638,
       "name": "execute nën prag",
       "note": "transfer SOL, pragu ditor përditësohet",
       "tx_bytes": 494
     },
     {
-      "cu": 5456,
+      "cu": 5453,
       "name": "execute me passkey (mbi prag)",
       "note": "sesion + passkey",
       "tx_bytes": 883
@@ -160,5 +160,5 @@
       "rejected": true
     }
   ],
-  "program_size_bytes": 89808
+  "program_size_bytes": 89768
 }

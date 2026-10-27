@@ -37,19 +37,19 @@
       "tx_bytes": 1124
     },
     {
-      "cu": 2578,
+      "cu": 2575,
       "name": "execute: transfer SOL",
       "note": "1 CPI te System, brenda limitit",
       "tx_bytes": 494
     },
     {
-      "cu": 2918,
+      "cu": 2917,
       "name": "execute: transfer token",
       "note": "1 CPI te SPL Token, matja para/pas",
       "tx_bytes": 526
     },
     {
-      "cu": 4606,
+      "cu": 4602,
       "name": "execute: SOL + token",
       "note": "2 CPI në një instruksion",
       "tx_bytes": 612
@@ -224,6 +224,11 @@
       "rejected": true
     },
     {
+      "case": "execute: fee payer-i si nënshkrues i instruksionit të brendshëm",
+      "expected_code": 3,
+      "rejected": true
+    },
+    {
       "case": "execute: nënshkrues që s'është session_key",
       "expected_code": 2,
       "rejected": true
@@ -269,5 +274,5 @@
       "rejected": true
     }
   ],
-  "program_size_bytes": 89808
+  "program_size_bytes": 89768
 }
