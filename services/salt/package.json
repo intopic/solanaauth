@@ -1,0 +1,17 @@
+{
+  "name": "@solanaauth/salt-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shërbimi i salt-it për zkLogin: verifikon JWT-në (Google/Apple) dhe kthen një salt deterministik për (iss, aud, sub)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "jose": "5.10.0"
+  }
+}

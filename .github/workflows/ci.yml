@@ -115,9 +115,45 @@ jobs:
             results/
             README.md
 
+  # SDK-të (core, react, agent), shërbimet (salt, jwk-oracle, prover proxy) dhe quickstart-i.
+  # Testet e2e përdorin solanaauth.so nga build-i; vektorët Rust↔TS duhet të jenë të përditësuar.
+  sdk:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/download-artifact@v4
+        with:
+          name: program
+          path: artifact
+      - name: SDK vectors (Rust) janë të përditësuar
+        env:
+          CHECK_SDK_VECTORS: "1"
+        run: cargo test -p bench --test sdk_vectors
+      - run: npm ci --no-audit --no-fund
+      - name: Build
+        run: |
+          npm run build -w sdk/core -w sdk/react -w sdk/agent -w services/salt -w services/jwk-oracle -w services/prover
+          VITE_PROGRAM_ID=11111111111111111111111111111111 npm run build -w examples/quickstart
+      - name: Test
+        env:
+          SOLANAAUTH_SO: ${{ github.workspace }}/artifact/programs/solanaauth/target/deploy/solanaauth.so
+        run: |
+          for w in sdk/core sdk/react sdk/agent services/salt services/jwk-oracle services/prover; do
+            echo "::group::$w"
+            (cd "$w" && node --test test/*.test.mjs)
+            echo "::endgroup::"
+          done
+
   # 4. publish (vetëm në main): commit i results/ dhe i tabelës në README; Release në tag v*.
   publish:
-    needs: bench
+    needs: [bench, sdk]
     if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     steps:
@@ -174,25 +210,27 @@ jobs:
           # Vetëm çelësa devnet pa vlerë reale. Asnjë çelës mainnet.
           DEVNET_DEPLOYER_KEYPAIR: ${{ secrets.DEVNET_DEPLOYER_KEYPAIR }}
           DEVNET_PROGRAM_KEYPAIR: ${{ secrets.DEVNET_PROGRAM_KEYPAIR }}
+          DEVNET_SOLANAAUTH_PROGRAM_KEYPAIR: ${{ secrets.DEVNET_SOLANAAUTH_PROGRAM_KEYPAIR }}
         run: |
-          mkdir -p programs/zklogin-verifier/target/deploy
+          mkdir -p programs/zklogin-verifier/target/deploy programs/solanaauth/target/deploy
           cp artifact/programs/zklogin-verifier/target/deploy/zklogin_verifier.so programs/zklogin-verifier/target/deploy/
+          cp artifact/programs/solanaauth/target/deploy/solanaauth.so programs/solanaauth/target/deploy/
           bash scripts/devnet.sh
       - name: Job summary
         if: always()
-        run: cat results/devnet-report.md >> "$GITHUB_STEP_SUMMARY" || true
+        run: cat results/devnet-report.md results/devnet-solanaauth.md >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: devnet-report
-          path: results/devnet-report.md
+          path: results/devnet-*.md
           if-no-files-found: ignore
       - name: Publish devnet report to main
         if: github.ref == 'refs/heads/main'
         run: |
           git config user.name "ci-bot"
           git config user.email "ci-bot@users.noreply.github.com"
-          git add results/devnet-report.md
+          git add results/devnet-*.md
           git commit -m "ci: devnet report [skip ci]" || exit 0
           git pull --rebase origin main
           git push origin HEAD:main

@@ -1,0 +1,23 @@
+{
+  "name": "@solanaauth/agent",
+  "version": "0.1.0",
+  "description": "Portofol për agjentë: një çelës sesioni me politikë on-chain (programet, limitet, skadimi), hyrja nga CLI me loopback",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": { ".": "./dist/index.js" },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@solana/web3.js": "1.98.4",
+    "@solanaauth/core": "0.1.0"
+  },
+  "devDependencies": {
+    "@solana/kit": "8.5.0",
+    "litesvm": "1.5.0"
+  }
+}

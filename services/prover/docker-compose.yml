@@ -1,0 +1,41 @@
+# Prover-i zkLogin i hostuar: imazhet e Mysten (backend rapidsnark + frontend HTTP) pas një proxy
+# që shton CORS, kufizim kërkesash dhe listën e aplikacioneve të lejuara.
+#
+#   ./fetch-zkey.sh            # shkarkon zkLogin-main.zkey (~600 MB) dhe kontrollon hash-in
+#   ALLOWED_AUDIENCES=... docker compose up -d
+#
+# Prova e prodhuar verifikohet on-chain me verifying key "main" (fixtures/vk). Prover-i nuk sheh
+# kurrë çelës privat: merr JWT-në, çelësin publik ephemeral, salt-in dhe randomness-in.
+services:
+  backend:
+    image: mysten/zklogin:prover-stable
+    volumes:
+      - ${ZKEY:-./zkLogin-main.zkey}:/app/binaries/zkLogin.zkey:ro
+    environment:
+      - ZKEY=/app/binaries/zkLogin.zkey
+      - WITNESS_BINARIES=/app/binaries
+    restart: unless-stopped
+
+  frontend:
+    image: mysten/zklogin:prover-fe-stable
+    command: "8080"
+    environment:
+      - PROVER_URI=http://backend:8080/input
+      - NODE_ENV=production
+      - DEBUG=zkLogin:info,jwks
+      - PROVER_TIMEOUT=30
+    depends_on: [backend]
+    restart: unless-stopped
+
+  proxy:
+    build: .
+    ports:
+      - "${PROVER_PORT:-8080}:8080"
+    environment:
+      - UPSTREAM=http://frontend:8080/v1
+      - ALLOWED_AUDIENCES=${ALLOWED_AUDIENCES:?vendos client ID-të e OAuth}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - RATE_LIMIT_PER_MIN=${RATE_LIMIT_PER_MIN:-10}
+      - MAX_SESSION_SECS=${MAX_SESSION_SECS:-2592000}
+    depends_on: [frontend]
+    restart: unless-stopped

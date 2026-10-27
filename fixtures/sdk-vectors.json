@@ -1,0 +1,246 @@
+{
+  "admin": "9hSR6S7WPtxmTojgo6GG3k4yDPecgJY292j7xrsUGWBu",
+  "config": "8uZ1Xjv8Jsyfi98uTWryPLi1GrLijtpsgA45EqGhJMEb",
+  "eph_pubkey": "DWCMp31rQoXjsT91Ftk7PKC7qs8qmQqZJdsUwo37p22j",
+  "fixture": "google-mainnet-v1",
+  "identity": "5d4c1add6bea1d8fd46cd246522fb7aafa0a6832cbc40369d211bdaf9c9dc14b",
+  "ix": {
+    "apply_jwk": {
+      "accounts": [
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "G3i2eU5ZqyTnsFjk5QZc8m6ECzTiFkFPkEsyzxe2N4g1"
+        }
+      ],
+      "data": "03",
+      "program_id": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+    },
+    "close_session": {
+      "accounts": [
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "8cdEpdL4gTgF1iMrCUfByN5LE5wms76DSg6RJ2f5zSxP"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "6N8jLSYu32GoiryhwtpZVNpL1yagdb7dgLVb4Le4LNHV"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "ACyZ6Uk1oUCFS7nZge2GHxwbnaxMoGK7XZYXoQyHdE21"
+        }
+      ],
+      "data": "0a",
+      "program_id": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+    },
+    "create_wallet": {
+      "accounts": [
+        {
+          "is_signer": true,
+          "is_writable": true,
+          "pubkey": "AKnL4NNf3DGWZJS6cPknBuEGnVsV4A4m5tgebLHaRSZ9"
+        },
+        {
+          "is_signer": true,
+          "is_writable": false,
+          "pubkey": "DWCMp31rQoXjsT91Ftk7PKC7qs8qmQqZJdsUwo37p22j"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "8uZ1Xjv8Jsyfi98uTWryPLi1GrLijtpsgA45EqGhJMEb"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "G3i2eU5ZqyTnsFjk5QZc8m6ECzTiFkFPkEsyzxe2N4g1"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "8cdEpdL4gTgF1iMrCUfByN5LE5wms76DSg6RJ2f5zSxP"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "11111111111111111111111111111111"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "6N8jLSYu32GoiryhwtpZVNpL1yagdb7dgLVb4Le4LNHV"
+        }
+      ],
+      "data": "0500123bc23e81c115f31fd8ce6262fe612a7db7c0e5c5af9fd079521c4c180e49680f31f811595f3c8165436a9dd9bf0888c001b42476c98f8e8571cbff7f8254b22fae54465557d7ee35477d78f598e9d023d4a35444bb69297cc07c53dcd7c3822f5b1bfa6a4f26e7ca75cc473cd6b70295d349db0f3c93942e82c9368b53c15730399719db7f762753743f096a294441127aabfd1e9019c9356f9b9f7e46b40d2780c4a5093b4a094412312374db28686f1d7721c17d39bea26a84e23708d5cb10a64c0300251723ca1d6bc8519f456163e0b4aea9835df2bd02b3859af7e69e23ea169b33e76df30251af88cfcf1c18fb15767d0d9ae8e81839a9408cfd85c80a000000000000001d72d5b96299d18456afe94047465158c06e6956c02f9c38b444d2c8b1bacfcb0131794a7063334d694f694a6f64485277637a6f764c32466a59323931626e527a4c6d6476623264735a53356a623230694c43660065794a68624763694f694a53557a49314e694973496d74705a434936496a5a6d4e7a49314e4445774d5759314e6d55304d574e6d4d7a566a4f546b794e6d526c4f4452684d6d51314e544a694e474d325a6a45694c434a30655841694f694a4b56315169665101100e0000000000000000000064656d6f0000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000006ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a901000000000000000000000000000000000000000000000000000000000000000000ca9a3b0000000080510100",
+      "program_id": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+    },
+    "execute": {
+      "accounts": [
+        {
+          "is_signer": true,
+          "is_writable": false,
+          "pubkey": "DWCMp31rQoXjsT91Ftk7PKC7qs8qmQqZJdsUwo37p22j"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "8cdEpdL4gTgF1iMrCUfByN5LE5wms76DSg6RJ2f5zSxP"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "6N8jLSYu32GoiryhwtpZVNpL1yagdb7dgLVb4Le4LNHV"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "ACyZ6Uk1oUCFS7nZge2GHxwbnaxMoGK7XZYXoQyHdE21"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "11111111111111111111111111111111"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "LbUiWL3xVV8hTFYBVdbTNrpDo41NKS6o3LHHuDzjfcY"
+        }
+      ],
+      "data": "0700010402030305010c0002000000d204000000000000",
+      "program_id": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+    },
+    "init_config": {
+      "accounts": [
+        {
+          "is_signer": true,
+          "is_writable": true,
+          "pubkey": "9hSR6S7WPtxmTojgo6GG3k4yDPecgJY292j7xrsUGWBu"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "8uZ1Xjv8Jsyfi98uTWryPLi1GrLijtpsgA45EqGhJMEb"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "Hibe1esmNpASGJBynhevaMybmY2gcGcPDrfz8zMZyw1J"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "11111111111111111111111111111111"
+        }
+      ],
+      "data": "008139770ea87d175f56a35466c34c7ecccb8d8a91b4ee37a25df60f5b8fc9b394ed4928c628d1c2c6eae90338905995612959273a5c63f93636c14614ac8737d10200000000000000008d27000000000000a302000000000000",
+      "program_id": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+    },
+    "open_session": {
+      "accounts": [
+        {
+          "is_signer": true,
+          "is_writable": true,
+          "pubkey": "AKnL4NNf3DGWZJS6cPknBuEGnVsV4A4m5tgebLHaRSZ9"
+        },
+        {
+          "is_signer": true,
+          "is_writable": false,
+          "pubkey": "DWCMp31rQoXjsT91Ftk7PKC7qs8qmQqZJdsUwo37p22j"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "8uZ1Xjv8Jsyfi98uTWryPLi1GrLijtpsgA45EqGhJMEb"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "G3i2eU5ZqyTnsFjk5QZc8m6ECzTiFkFPkEsyzxe2N4g1"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "8cdEpdL4gTgF1iMrCUfByN5LE5wms76DSg6RJ2f5zSxP"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "6N8jLSYu32GoiryhwtpZVNpL1yagdb7dgLVb4Le4LNHV"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "11111111111111111111111111111111"
+        }
+      ],
+      "data": "0600123bc23e81c115f31fd8ce6262fe612a7db7c0e5c5af9fd079521c4c180e49680f31f811595f3c8165436a9dd9bf0888c001b42476c98f8e8571cbff7f8254b22fae54465557d7ee35477d78f598e9d023d4a35444bb69297cc07c53dcd7c3822f5b1bfa6a4f26e7ca75cc473cd6b70295d349db0f3c93942e82c9368b53c15730399719db7f762753743f096a294441127aabfd1e9019c9356f9b9f7e46b40d2780c4a5093b4a094412312374db28686f1d7721c17d39bea26a84e23708d5cb10a64c0300251723ca1d6bc8519f456163e0b4aea9835df2bd02b3859af7e69e23ea169b33e76df30251af88cfcf1c18fb15767d0d9ae8e81839a9408cfd85c80a000000000000001d72d5b96299d18456afe94047465158c06e6956c02f9c38b444d2c8b1bacfcb0131794a7063334d694f694a6f64485277637a6f764c32466a59323931626e527a4c6d6476623264735a53356a623230694c43660065794a68624763694f694a53557a49314e694973496d74705a434936496a5a6d4e7a49314e4445774d5759314e6d55304d574e6d4d7a566a4f546b794e6d526c4f4452684d6d51314e544a694e474d325a6a45694c434a30655841694f694a4b563151696651100e0000000000000000000064656d6f0000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000006ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a901000000000000000000000000000000000000000000000000000000000000000000ca9a3b0000000080510100",
+      "program_id": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+    },
+    "propose_jwk": {
+      "accounts": [
+        {
+          "is_signer": true,
+          "is_writable": false,
+          "pubkey": "GyGKxMyg1p9SsHfm15MkNUu1u9TN2JtTspcdmrtGUdse"
+        },
+        {
+          "is_signer": true,
+          "is_writable": true,
+          "pubkey": "AKnL4NNf3DGWZJS6cPknBuEGnVsV4A4m5tgebLHaRSZ9"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "8uZ1Xjv8Jsyfi98uTWryPLi1GrLijtpsgA45EqGhJMEb"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "G3i2eU5ZqyTnsFjk5QZc8m6ECzTiFkFPkEsyzxe2N4g1"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "11111111111111111111111111111111"
+        }
+      ],
+      "data": "021b68747470733a2f2f6163636f756e74732e676f6f676c652e636f6d28366637323534313031663536653431636633356339393236646538346132643535326234633666310001a14ae253c1aa6d1c3e6af70c9fde43196d5ca5947522833a2fb92b7eb5af2d24827125fa220d75ee8db9624ed0581889a5a3d5d056cfed8e7e0e64e167749a1740175bedc1b0a3c45df15f78a55ceaf06a937b7998a94d128c2376f3534b3a0e5cee54207c2c5dac622656cc45a95a144526fb608a8265e5d6cb3fc8687538791f9c1886b1f4149dd2a81e266e0f304c1b0f127faeda9bf3a4fb815284ad0db91dfeab7dda07fdd9ee86c2ef575e8d22d614e11c2945426b0e83195b8ba20df1e74ea1d50435af415728e4319e6aab460a681ea192a2eb86df9a19bded6f802538bcb67a10080101b0b428bdf923bff4c140d2329880bdfee2671cc955bb29910000000000000000ffffffffffffff7f",
+      "program_id": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+    },
+    "revoke_self": {
+      "accounts": [
+        {
+          "is_signer": true,
+          "is_writable": false,
+          "pubkey": "DWCMp31rQoXjsT91Ftk7PKC7qs8qmQqZJdsUwo37p22j"
+        },
+        {
+          "is_signer": false,
+          "is_writable": false,
+          "pubkey": "8cdEpdL4gTgF1iMrCUfByN5LE5wms76DSg6RJ2f5zSxP"
+        },
+        {
+          "is_signer": false,
+          "is_writable": true,
+          "pubkey": "6N8jLSYu32GoiryhwtpZVNpL1yagdb7dgLVb4Le4LNHV"
+        }
+      ],
+      "data": "0800",
+      "program_id": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+    }
+  },
+  "jwk": "G3i2eU5ZqyTnsFjk5QZc8m6ECzTiFkFPkEsyzxe2N4g1",
+  "oracle": "GyGKxMyg1p9SsHfm15MkNUu1u9TN2JtTspcdmrtGUdse",
+  "payer": "AKnL4NNf3DGWZJS6cPknBuEGnVsV4A4m5tgebLHaRSZ9",
+  "policy": "100e0000000000000000000064656d6f0000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000006ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a901000000000000000000000000000000000000000000000000000000000000000000ca9a3b0000000080510100",
+  "program_id": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+  "session": "6N8jLSYu32GoiryhwtpZVNpL1yagdb7dgLVb4Le4LNHV",
+  "vault": "ACyZ6Uk1oUCFS7nZge2GHxwbnaxMoGK7XZYXoQyHdE21",
+  "wallet": "8cdEpdL4gTgF1iMrCUfByN5LE5wms76DSg6RJ2f5zSxP",
+  "zk_block": "00123bc23e81c115f31fd8ce6262fe612a7db7c0e5c5af9fd079521c4c180e49680f31f811595f3c8165436a9dd9bf0888c001b42476c98f8e8571cbff7f8254b22fae54465557d7ee35477d78f598e9d023d4a35444bb69297cc07c53dcd7c3822f5b1bfa6a4f26e7ca75cc473cd6b70295d349db0f3c93942e82c9368b53c15730399719db7f762753743f096a294441127aabfd1e9019c9356f9b9f7e46b40d2780c4a5093b4a094412312374db28686f1d7721c17d39bea26a84e23708d5cb10a64c0300251723ca1d6bc8519f456163e0b4aea9835df2bd02b3859af7e69e23ea169b33e76df30251af88cfcf1c18fb15767d0d9ae8e81839a9408cfd85c80a000000000000001d72d5b96299d18456afe94047465158c06e6956c02f9c38b444d2c8b1bacfcb0131794a7063334d694f694a6f64485277637a6f764c32466a59323931626e527a4c6d6476623264735a53356a623230694c43660065794a68624763694f694a53557a49314e694973496d74705a434936496a5a6d4e7a49314e4445774d5759314e6d55304d574e6d4d7a566a4f546b794e6d526c4f4452684d6d51314e544a694e474d325a6a45694c434a30655841694f694a4b563151696651"
+}
