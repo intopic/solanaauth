@@ -98,8 +98,38 @@ test('confirmed failures release reservations without charging simulated rent', 
   await assert.rejects(s.pm.sponsor(s.apiKey, s.raw()), e => e.code === 'TransactionFailed');
   assert.equal(s.store.pending(s.app.id).length, 0);
   assert.equal(s.app.balanceMicroUsd, 6_000_000);
-  const chain = rpcChain({ sendRawTransaction: async () => 'failed', confirmTransaction: async () => ({ value: { err: { InstructionError: [0, 'Custom'] } } }) });
-  await assert.rejects(chain.send(new Uint8Array()), e => e.code === 'TransactionFailed');
+  const tx = Transaction.from(s.raw());
+  tx.partialSign(s.options.feePayer);
+  const chain = rpcChain({ getSignatureStatuses: async () => ({ value: [null] }), sendRawTransaction: async () => 'failed', confirmTransaction: async () => ({ value: { err: { InstructionError: [0, 'Custom'] } } }) });
+  await assert.rejects(chain.send(tx.serialize()), e => e.code === 'TransactionFailed');
+});
+
+test('RPC retries find an already confirmed signature without rebroadcasting an expired transaction', async () => {
+  const s = setup();
+  const tx = Transaction.from(s.raw());
+  tx.partialSign(s.options.feePayer);
+  let lookedUp;
+  const chain = rpcChain({
+    getSignatureStatuses: async (signatures, options) => {
+      assert.equal(options.searchTransactionHistory, true);
+      lookedUp = signatures[0];
+      return { value: [{ err: null, confirmationStatus: 'confirmed' }] };
+    },
+    sendRawTransaction: async () => assert.fail('must not rebroadcast'),
+    confirmTransaction: async () => assert.fail('already confirmed'),
+  });
+  assert.equal(await chain.send(tx.serialize()), lookedUp);
+  assert.equal(typeof lookedUp, 'string');
+  assert.ok(lookedUp.length > 64);
+});
+
+test('compute budget rejects duplicate, malformed, deprecated and uncapped batch fees', () => {
+  const valid = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000_000n });
+  assert.throws(() => sa.validateComputeBudget([valid, valid], 1_000_000n, 2_000_000n), /duplicate/);
+  assert.throws(() => sa.validateComputeBudget([{ ...valid, data: Buffer.from([3]) }], 1_000_000n, 2_000_000n), /unsupported/);
+  assert.throws(() => sa.validateComputeBudget([{ ...valid, data: Buffer.from([0,0,0,0,0]) }], 1_000_000n, 2_000_000n), /unsupported/);
+  assert.throws(() => sa.validateComputeBudget([valid], 1_000_000n, 200_000n), /total priority fee/);
+  sa.validateComputeBudget([ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }), valid], 1_000_000n, 100_000n);
 });
 
 test('settlement uses confirmed cost and unused reservation is released', async () => {

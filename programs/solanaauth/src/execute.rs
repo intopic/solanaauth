@@ -19,12 +19,14 @@ use crate::error::{AuthError, Result};
 use crate::policy::{charge, is_forbidden};
 use crate::processor::SYSTEM_PROGRAM;
 use crate::state::{Session, Wallet, MAX_PROGRAMS, SEED_VAULT, THRESHOLD_WINDOW_SECS};
-use crate::util::{derive_pda, now, require_signer, require_writable, Account, Reader};
+use crate::util::{derive_pda, find_pda, now, require_signer, require_writable, Account, Reader};
 
 pub const TOKEN_PROGRAM: Address =
     Address::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 pub const TOKEN_2022_PROGRAM: Address =
     Address::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+const ASSOCIATED_TOKEN_PROGRAM: Address =
+    Address::from_str_const("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 
 /// Maksimumi i llogarive për një instruksion të brendshëm.
 pub const MAX_INNER_ACCOUNTS: usize = 24;
@@ -247,9 +249,23 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
     // Validate the final authority of every vault token account, including new ATAs:
     // a delegate installed on an empty account could otherwise drain future deposits.
     for a in accounts.iter().skip(FIXED) {
-        if vault_token(a, vault.address())?.is_some() {
-            let d = a.try_borrow()?;
+        if !a.is_writable() || !is_token_program(a) || a.data_len() < TA_LEN {
+            continue;
+        }
+        let d = a.try_borrow()?;
+        if &d[TA_OWNER] == vault.address().as_ref() {
             if d[TA_DELEGATE_TAG] != [0; 4] || d[TA_CLOSE_AUTH_TAG] != [0; 4] {
+                return Err(AuthError::TokenInvariant.into());
+            }
+        } else {
+            // A newly created vault ATA must not change its token authority before the
+            // final scan either: future deposits still target its deterministic address.
+            let token_program = if a.owned_by(&TOKEN_PROGRAM) { &TOKEN_PROGRAM } else { &TOKEN_2022_PROGRAM };
+            let (expected, _) = find_pda(
+                &[vault.address().as_ref(), token_program.as_ref(), &d[TA_MINT]],
+                &ASSOCIATED_TOKEN_PROGRAM,
+            );
+            if a.address() == &expected {
                 return Err(AuthError::TokenInvariant.into());
             }
         }

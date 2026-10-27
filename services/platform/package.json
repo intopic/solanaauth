@@ -19,6 +19,7 @@
     "@solana/web3.js": "1.98.4",
     "@solanaauth/core": "0.1.0",
     "@solanaauth/salt-service": "0.1.0",
+    "bs58": "6.0.0",
     "jose": "5.10.0"
   },
   "devDependencies": {

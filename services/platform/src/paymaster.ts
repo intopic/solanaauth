@@ -7,7 +7,8 @@
  * pastaj nënshkrim. Depozita ngarkohet me koston reale + marzhin e konfigurueshëm.
  */
 import { ComputeBudgetProgram, Keypair, PublicKey, Transaction } from "@solana/web3.js";
-import { Op, SECP256R1_PROGRAM_ID, confirmTransaction, validateComputeBudget } from "@solanaauth/core";
+import { Op, SECP256R1_PROGRAM_ID, validateComputeBudget } from "@solanaauth/core";
+import bs58 from "bs58";
 
 import { Pricing, micro, monthRange } from "./pricing.js";
 import { App, Store, Sponsorship, sha256hex, effectivePlan } from "./store.js";
@@ -233,7 +234,15 @@ export function rpcChain(connection: import("@solana/web3.js").Connection): Paym
       return { err: r.value.err ? JSON.stringify(r.value.err) : null, before, after, logs: r.value.logs ?? [] };
     },
     async send(raw) {
-      const sig = await connection.sendRawTransaction(raw);
+      // The signed transaction fixes its signature before broadcasting. A previous send may
+      // have landed even when the HTTP response was lost, including before a process restart.
+      const tx = Transaction.from(raw);
+      if (!tx.signature) throw new SponsorError("InvalidTransaction", "mungon nënshkrimi", 422);
+      const sig = bs58.encode(tx.signature);
+      const status = (await connection.getSignatureStatuses([sig], { searchTransactionHistory: true })).value[0];
+      if (status?.err) throw new SponsorError("TransactionFailed", JSON.stringify(status.err), 422);
+      if (status?.confirmationStatus === "confirmed" || status?.confirmationStatus === "finalized") return sig;
+      if (!status) await connection.sendRawTransaction(raw);
       const result = await connection.confirmTransaction(sig, "confirmed");
       if (result.value.err) throw new SponsorError("TransactionFailed", JSON.stringify(result.value.err), 422);
       return sig;

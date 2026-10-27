@@ -36,6 +36,17 @@ test('new vault token accounts cannot retain a delegate; rollback protects futur
   ] });
   await assert.rejects(client.execute(session, [create, approve], { feePayer: w.feePayer }), /0x24|Custom\(36\)|TokenInvariant/);
   assert.ok(!w.svm.getAccount(kit.A(source))?.data?.length, 'failed execute rolls back ATA creation');
+  const setAuthority = (kind) => new TransactionInstruction({ programId: kit.TOKEN,
+    data: Buffer.concat([Buffer.from([6, kind, 1]), delegate.publicKey.toBuffer()]),
+    keys: [
+      { pubkey: source, isSigner: false, isWritable: true },
+      { pubkey: session.vault, isSigner: true, isWritable: false },
+    ],
+  });
+  for (const kind of [2, 3]) { // AccountOwner, CloseAccount.
+    await assert.rejects(client.execute(session, [create, setAuthority(kind)], { feePayer: w.feePayer }), /0x24|Custom\(36\)|TokenInvariant/);
+    assert.ok(!w.svm.getAccount(kit.A(source))?.data?.length);
+  }
   await client.execute(session, [create], { feePayer: w.feePayer });
   const account = w.svm.getAccount(kit.A(source));
   assert.equal(Buffer.from(account.data).readUInt32LE(72), 0, 'valid new ATA has no delegate');

@@ -3,7 +3,9 @@ import { ComputeBudgetProgram, TransactionInstruction } from "@solana/web3.js";
 /** Validate client-supplied budget instructions before a sponsor signs them. */
 export function validateComputeBudget(instructions: TransactionInstruction[], maxPrice: bigint, maxPriorityLamports: bigint): void {
   const seen = new Set<number>();
-  let units = 200_000n;
+  // Without an explicit limit the runtime budget depends on instruction count. Use its
+  // maximum rather than underestimating a batch's fee as one 200k-CU instruction.
+  let units = 1_400_000n;
   let price = 0n;
   for (const ix of instructions) {
     if (!ix.programId.equals(ComputeBudgetProgram.programId)) continue;

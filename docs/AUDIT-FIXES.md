@@ -7,8 +7,8 @@ the session credentials and only the permissions granted by the wallet.
 | Area | Change | Regression evidence |
 | --- | --- | --- |
 | CI | Build/test jobs run without devnet secrets; required job rejects skipped dependencies | Linux SBF, Rust reference/bench, JS integration, Windows, Docker jobs |
-| Token authority | Final-state invariant scans newly created vault token accounts too | `sdk/core/test/token-invariants.test.mjs`: create+approve rollback, valid ATA creation, existing-account approval rejection |
-| Paymaster | Shared per-app queue, durable reservations, transaction-message idempotence, atomic settlement | Concurrent quota/deposit requests, retry across restart, duplicate settlement tests |
+| Token authority | Final-state invariant scans newly created vault token accounts and protects the deterministic ATA owner | `sdk/core/test/token-invariants.test.mjs`: create+approve/set-authority rollback, valid ATA creation, existing-account approval rejection |
+| Paymaster | Shared per-app queue, durable reservations, transaction-message idempotence, atomic settlement, RPC signature reconciliation | Concurrent quota/deposit requests, retry across restart, duplicate settlement and already-confirmed retry tests |
 | Confirmation | Confirmed instruction errors reject; logout retains credentials until revocation succeeds | RPC adapter failure and BrowserLogin retry tests |
 | Attribution | Reject mixed-wallet batches; count every sponsored account operation | Batch tests |
 | Fee abuse | Validate ComputeBudget instructions, duplicates, price and total priority fee | x402 negative and positive payment tests |
@@ -21,6 +21,7 @@ the session credentials and only the permissions granted by the wallet.
 | Amounts | Preserve zero-decimal amounts and reject malformed/overflowing amounts | Wallet utility tests |
 | Services | Correct prover ESM build; bound rate-limit state; trust forwarded IP only from configured proxies | Shipped Docker image smoke tests and real HTTP spoofing tests |
 | Portability | URL-to-filesystem conversion; newline-independent VK comparison | Windows build/tests and Rust VK check |
+| Dependencies | Vite 7.3.7 / React plugin 5.2.0; override Jayson to 5.0.0, removing vulnerable uuid/stream-json paths | Clean `npm ci`, HTTP JSON-RPC compatibility test, browser builds, `npm audit` CI gate |
 
 Run `npm ci`, `npm run build`, then `npm run test:security` for the portable regressions.
 `npm test` additionally requires Linux/macOS LiteSVM and the current SBF artifacts. CI builds
@@ -31,6 +32,14 @@ database implementing the same reservation and settlement semantics. Transport f
 the reservation because a transaction may already have landed; retry the identical transaction.
 Do not release an unresolved reservation based only on a network timeout. The RPC adapter bills
 confirmed payer balance changes; custom adapters without `spent` use simulated cost.
+The RPC adapter searches signature history before broadcasting, so a confirmed transaction can
+be settled after a lost response even when its blockhash has since expired.
+
+Node 22.12+ is required for the updated frontend toolchain. Jayson 5 changes TCP/TLS framing;
+web3 uses its browser HTTP JSON-RPC client, which is covered by a regression test. No SDK code
+in this repository uses Jayson's TCP/TLS interfaces. Wallet Standard consumers must migrate
+from the previously advertised `solana:signMessage` to `solanaauth:session.signMessage` as
+described in [SIGN-MESSAGE.md](SIGN-MESSAGE.md).
 
 Behind a reverse proxy, set `TRUSTED_PROXIES` to the actual immediate peer IPs and configure that
 proxy to overwrite incoming `X-Forwarded-For`. Unconfigured forwarding headers are ignored.

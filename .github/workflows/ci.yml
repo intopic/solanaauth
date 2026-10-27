@@ -142,6 +142,8 @@ jobs:
           CHECK_SDK_VECTORS: "1"
         run: cargo test -p bench --test sdk_vectors
       - run: npm ci --no-audit --no-fund
+      - name: Dependency security audit
+        run: npm audit --audit-level=moderate
       - name: Build
         run: |
           npm run build -w sdk/core -w sdk/react -w sdk/agent -w sdk/wallet-standard -w services/salt -w services/jwk-oracle -w services/prover -w services/platform
