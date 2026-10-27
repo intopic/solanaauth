@@ -9,6 +9,9 @@
     "services/salt",
     "services/jwk-oracle",
     "services/prover",
+    "services/platform",
+    "apps/dashboard",
+    "apps/wallet",
     "examples/quickstart"
   ],
   "scripts": {

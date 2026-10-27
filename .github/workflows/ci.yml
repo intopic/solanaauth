@@ -115,7 +115,8 @@ jobs:
             results/
             README.md
 
-  # SDK-të (core, react, agent), shërbimet (salt, jwk-oracle, prover proxy) dhe quickstart-i.
+  # SDK-të (core, react, agent), shërbimet (salt, jwk-oracle, prover proxy, platforma me paymaster
+  # dhe faturim), dashboard-i, faqja e portofolit dhe quickstart-i.
   # Testet e2e përdorin solanaauth.so nga build-i; vektorët Rust↔TS duhet të jenë të përditësuar.
   sdk:
     needs: build
@@ -139,15 +140,16 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Build
         run: |
-          npm run build -w sdk/core -w sdk/react -w sdk/agent -w services/salt -w services/jwk-oracle -w services/prover
-          VITE_PROGRAM_ID=11111111111111111111111111111111 npm run build -w examples/quickstart
+          npm run build -w sdk/core -w sdk/react -w sdk/agent -w services/salt -w services/jwk-oracle -w services/prover -w services/platform
+          export VITE_PROGRAM_ID=11111111111111111111111111111111
+          npm run build -w examples/quickstart -w apps/dashboard -w apps/wallet
       - name: Test
         env:
           SOLANAAUTH_SO: ${{ github.workspace }}/artifact/programs/solanaauth/target/deploy/solanaauth.so
         run: |
-          for w in sdk/core sdk/react sdk/agent services/salt services/jwk-oracle services/prover; do
+          for w in sdk/core sdk/react sdk/agent services/salt services/jwk-oracle services/prover services/platform; do
             echo "::group::$w"
-            (cd "$w" && node --test test/*.test.mjs)
+            (cd "$w" && node --test --test-timeout=120000 test/*.test.mjs)
             echo "::endgroup::"
           done
 

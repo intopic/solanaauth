@@ -117,6 +117,24 @@ export async function fetchSession(c: Connection, session: PublicKey): Promise<S
   return acc ? decodeSession(acc.data) : null;
 }
 
+/** Portofolet ku `identity` është në një nga dy slot-et zk (offset 56 dhe 96). */
+export async function findWalletsByIdentity(c: Connection, programId: PublicKey, identity: Uint8Array): Promise<PublicKey[]> {
+  if (typeof (c as Partial<Connection>).getProgramAccounts !== "function") return [];
+  const bytes = new PublicKey(identity).toBase58();
+  const out: PublicKey[] = [];
+  for (const offset of [56, 96]) {
+    const accs = await c.getProgramAccounts(programId, { filters: [{ dataSize: 416 }, { memcmp: { offset, bytes } }] });
+    for (const a of accs) if (!out.some((x) => x.equals(a.pubkey))) out.push(a.pubkey);
+  }
+  return out;
+}
+
+/** Sesionet e një portofoli (offset 8 = `wallet`). */
+export async function fetchSessions(c: Connection, programId: PublicKey, wallet: PublicKey): Promise<{ address: PublicKey; session: SessionAccount }[]> {
+  const accs = await c.getProgramAccounts(programId, { filters: [{ dataSize: 640 }, { memcmp: { offset: 8, bytes: wallet.toBase58() } }] });
+  return accs.map((a) => ({ address: a.pubkey, session: decodeSession(a.account.data) }));
+}
+
 export interface JwkKeyInfo {
   modulusHash: Uint8Array;
   modulusBits: number;

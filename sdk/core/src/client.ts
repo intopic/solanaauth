@@ -12,7 +12,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 
-import { fetchWallet } from "./accounts.js";
+import { fetchWallet, findWalletsByIdentity } from "./accounts.js";
 import { base64Encode, toBigEndian } from "./bytes.js";
 import * as ixs from "./instructions.js";
 import { Policy } from "./instructions.js";
@@ -35,6 +35,12 @@ export interface SolanaAuthOptions {
   proverUrl: string;
   /** URL e shërbimit të salt-it (`POST { jwt }` → `{ salt }`). */
   saltUrl: string;
+  /** API key i platformës (dërgohet si `x-api-key` te salt-i dhe prover-i i hostuar). */
+  apiKey?: string;
+  /** `"agent"` kur hyn një agjent (numërohet si agjent aktiv në platformë). */
+  client?: "app" | "agent";
+  /** Kush paguan tarifat dhe rent-in kur s'jepet ndryshe: përdoruesi (çelësi i sesionit), aplikacioni, Kora ose paymaster-i. */
+  feePayer?: FeePayer;
   /** Prova nga prover-i dev (verifying key test). Vetëm devnet. */
   vkTest?: boolean;
   commitment?: Commitment;
@@ -58,6 +64,73 @@ export interface Session {
   identity: Uint8Array;
 }
 
+/**
+ * Paguesi i tarifave. `publicKey` vendoset si fee payer para nënshkrimit të çelësit të sesionit;
+ * `submit` merr tx-in e nënshkruar pjesërisht, e nënshkruan dhe e dërgon.
+ */
+export interface FeePayer {
+  publicKey: PublicKey;
+  submit(tx: Transaction): Promise<string>;
+}
+
+const b64 = (tx: Transaction) => {
+  const raw = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+  let s = "";
+  for (const b of raw) s += String.fromCharCode(b);
+  return btoa(s);
+};
+
+/** Paymaster-i i platformës (opsional; aplikacioni e aktivizon nga dashboard-i). */
+export async function paymasterFeePayer(platformUrl: string, apiKey: string, f: typeof fetch = fetch): Promise<FeePayer> {
+  const res = await f(`${platformUrl}/v1/paymaster`, { headers: { "x-api-key": apiKey } });
+  const info = await res.json();
+  if (!res.ok || !info.enabled || !info.feePayer) throw new Error("paymaster-i s'është aktiv për këtë aplikacion");
+  return {
+    publicKey: new PublicKey(info.feePayer),
+    async submit(tx) {
+      const r = await f(`${platformUrl}/v1/sponsor`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": apiKey },
+        body: JSON.stringify({ transaction: b64(tx) }),
+      });
+      const body = await r.json();
+      if (!r.ok) throw Object.assign(new Error(`paymaster: ${body.code ?? r.status} ${body.error ?? ""}`), { code: body.code });
+      return body.signature;
+    },
+  };
+}
+
+/** Serveri i aplikacionit si fee payer: i njëjti protokoll si paymaster-i (`POST { transaction }` → `{ signature }`). */
+export function appServerFeePayer(url: string, publicKey: PublicKey, headers: Record<string, string> = {}, f: typeof fetch = fetch): FeePayer {
+  return {
+    publicKey,
+    async submit(tx) {
+      const r = await f(url, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify({ transaction: b64(tx) }) });
+      const body = await r.json();
+      if (!r.ok) throw new Error(`fee payer: ${body.error ?? r.status}`);
+      return body.signature;
+    },
+  };
+}
+
+/** Kora (JSON-RPC): `getPayerSigner` dhe `signAndSendTransaction`. */
+export async function koraFeePayer(rpcUrl: string, f: typeof fetch = fetch): Promise<FeePayer> {
+  const rpc = async (method: string, params: unknown) => {
+    const r = await f(rpcUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+    const body = await r.json();
+    if (body.error) throw new Error(`kora ${method}: ${body.error.message}`);
+    return body.result;
+  };
+  const signer = await rpc("getPayerSigner", {});
+  return {
+    publicKey: new PublicKey(signer.signer_address ?? signer.payment_address),
+    async submit(tx) {
+      const r = await rpc("signAndSendTransaction", { transaction: b64(tx) });
+      return r.signature;
+    },
+  };
+}
+
 export const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 export const APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize";
 
@@ -70,6 +143,18 @@ export class SolanaAuth {
     this.opts = opts;
     this.connection = opts.connection;
     this.programId = opts.programId;
+  }
+
+  private headers(): Record<string, string> {
+    return {
+      "content-type": "application/json",
+      ...(this.opts.apiKey ? { "x-api-key": this.opts.apiKey } : {}),
+      ...(this.opts.client ? { "x-solanaauth-client": this.opts.client } : {}),
+    };
+  }
+
+  get feePayer(): FeePayer | undefined {
+    return this.opts.feePayer;
   }
 
   private get fetch() {
@@ -107,7 +192,7 @@ export class SolanaAuth {
   async fetchSalt(jwt: string): Promise<bigint> {
     const res = await this.fetch(this.opts.saltUrl, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: this.headers(),
       body: JSON.stringify({ jwt }),
     });
     if (!res.ok) throw new Error(`salt service: ${res.status} ${await res.text()}`);
@@ -120,7 +205,7 @@ export class SolanaAuth {
     ext.set(kp.publicKey.toBytes(), 1);
     const res = await this.fetch(this.opts.proverUrl, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: this.headers(),
       body: JSON.stringify({
         jwt,
         extendedEphemeralPublicKey: base64Encode(ext),
@@ -145,6 +230,17 @@ export class SolanaAuth {
   }
 
   /**
+   * Portofoli ku identiteti është autoritet: adresa e derivuar (identiteti fillestar), ose, pas një
+   * rikuperimi që shtoi këtë identitet në një portofol tjetër, ai portofol (kërkim on-chain).
+   */
+  async resolveWallet(identity: Uint8Array): Promise<{ wallet: PublicKey; exists: boolean }> {
+    const derived = walletAddress(this.programId, identity);
+    if (await fetchWallet(this.connection, derived)) return { wallet: derived, exists: true };
+    const found = await findWalletsByIdentity(this.connection, this.programId, identity);
+    return found.length ? { wallet: found[0], exists: true } : { wallet: derived, exists: false };
+  }
+
+  /**
    * Hapi 2: nga JWT-ja te transaksioni. Krijon portofolin (hyrja e parë) ose hap sesion të ri.
    * `payer` paguan rent-in dhe tarifën; parazgjedhja është vetë çelësi i sesionit (duhet SOL).
    */
@@ -165,11 +261,12 @@ export class SolanaAuth {
     const claims = decodeJwt(jwt);
     const { kid } = decodeJwtHeader(jwt);
     const sessionKey = Keypair.fromSecretKey(pending.ephemeralSecretKey);
-    const { identity, wallet, vault } = this.walletFor(claims.iss, inputs.addressSeed);
+    const { identity } = this.walletFor(claims.iss, inputs.addressSeed);
+    const { wallet, exists } = await this.resolveWallet(identity);
+    const vault = vaultAddress(this.programId, wallet);
     const zk = encodeZkBlock(inputs, pending.maxEpoch, this.opts.vkTest);
     const accounts = { sessionKey: sessionKey.publicKey, jwk: jwkAddress(this.programId, claims.iss, kid), wallet };
-    const exists = (await fetchWallet(this.connection, wallet)) !== null;
-    const feePayer = payer ?? sessionKey.publicKey;
+    const feePayer = payer ?? this.opts.feePayer?.publicKey ?? sessionKey.publicKey;
     const ix = exists
       ? ixs.openSession(this.programId, feePayer, accounts, zk, policy)
       : ixs.createWallet(this.programId, feePayer, accounts, zk, policy);
@@ -197,20 +294,31 @@ export class SolanaAuth {
     return tx;
   }
 
-  /** `execute`: instruksionet ekzekutohen me vault-in si nënshkrues, brenda politikës. */
-  async execute(session: Session, inner: TransactionInstruction[], feePayer?: Keypair): Promise<string> {
+  /**
+   * `execute`: instruksionet ekzekutohen me vault-in si nënshkrues, brenda politikës.
+   * `feePayer`: një `Keypair` (p.sh. serveri i aplikacionit në Node), një `FeePayer` (paymaster,
+   * Kora, serveri i aplikacionit), ose parazgjedhja e klientit; përndryshe paguan çelësi i sesionit.
+   */
+  async execute(session: Session, inner: TransactionInstruction[], opts: { feePayer?: Keypair | FeePayer } = {}): Promise<string> {
     const ix = ixs.execute(this.programId, session.sessionKey.publicKey, session.wallet, inner);
-    const payer = feePayer ?? session.sessionKey;
-    const tx = await this.transaction([ix], payer.publicKey);
-    const signers = payer === session.sessionKey ? [payer] : [payer, session.sessionKey];
-    tx.sign(...signers);
-    return this.connection.sendRawTransaction(tx.serialize());
+    return this.send([ix], session.sessionKey, opts.feePayer ?? this.opts.feePayer);
   }
 
-  async revoke(session: Session): Promise<string> {
+  async revoke(session: Session, opts: { feePayer?: Keypair | FeePayer } = {}): Promise<string> {
     const ix = ixs.revokeSessionSelf(this.programId, session.sessionKey.publicKey, session.wallet);
-    const tx = await this.transaction([ix], session.sessionKey.publicKey);
-    tx.sign(session.sessionKey);
+    return this.send([ix], session.sessionKey, opts.feePayer ?? this.opts.feePayer);
+  }
+
+  /** Nënshkruan me çelësin e sesionit dhe dërgon me paguesin e zgjedhur. */
+  async send(instructions: TransactionInstruction[], sessionKey: Keypair, payer?: Keypair | FeePayer): Promise<string> {
+    if (payer && !(payer instanceof Keypair)) {
+      const tx = await this.transaction(instructions, payer.publicKey);
+      tx.partialSign(sessionKey);
+      return payer.submit(tx);
+    }
+    const p = payer ?? sessionKey;
+    const tx = await this.transaction(instructions, p.publicKey);
+    tx.sign(...(p === sessionKey ? [p] : [p, sessionKey]));
     return this.connection.sendRawTransaction(tx.serialize());
   }
 }

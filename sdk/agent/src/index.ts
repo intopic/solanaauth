@@ -200,7 +200,7 @@ export interface AgentLoginOptions {
  * (faqja e portofolit, M5); këtu ajo printohet para hyrjes.
  */
 export async function loginAgent(o: AgentLoginOptions): Promise<{ wallet: AgentWallet; created: boolean; signature: string }> {
-  const auth = new SolanaAuth(o.config);
+  const auth = new SolanaAuth({ client: "agent", ...o.config });
   const pending = auth.beginLogin(o.sessionSecs ?? o.policy.expiresIn, o.now);
   const state = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("hex");
   let resolve!: (jwt: string) => void;
@@ -238,6 +238,7 @@ export async function loginAgent(o: AgentLoginOptions): Promise<{ wallet: AgentW
     const { transaction, session, created } = await auth.completeLogin(jwt, pending, o.policy);
     let signature: string;
     if (o.submit) signature = await o.submit(transaction);
+    else if (auth.feePayer) signature = await auth.feePayer.submit(transaction);
     else {
       transaction.sign(session.sessionKey);
       signature = await auth.connection.sendRawTransaction(transaction.serialize());

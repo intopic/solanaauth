@@ -1,0 +1,53 @@
+{
+  "$comment": "Çmimet janë konfigurim, jo kod (brief 4.4). Shumat në USD. null = pa mbi-kuotë (kufi i fortë).",
+  "currency": "usd",
+  "plans": {
+    "free": {
+      "name": "Falas",
+      "monthlyUsd": 0,
+      "includedMau": 1000,
+      "includedPaymasterTx": 5000,
+      "includedAgents": 10,
+      "overageMauUsd": null,
+      "overageAgentUsd": null,
+      "devnetUnlimited": true
+    },
+    "starter": {
+      "name": "Starter",
+      "monthlyUsd": 49,
+      "includedMau": 5000,
+      "includedPaymasterTx": 25000,
+      "includedAgents": 50,
+      "overageMauUsd": 0.03,
+      "overageAgentUsd": 0.1
+    },
+    "growth": {
+      "name": "Growth",
+      "monthlyUsd": 199,
+      "includedMau": 25000,
+      "includedPaymasterTx": 150000,
+      "includedAgents": 250,
+      "overageMauUsd": 0.02,
+      "overageAgentUsd": 0.05
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "monthlyUsd": null,
+      "includedMau": null,
+      "includedPaymasterTx": null,
+      "includedAgents": null,
+      "overageMauUsd": null,
+      "overageAgentUsd": null,
+      "contract": true
+    }
+  },
+  "paymaster": {
+    "marginUsd": 0.0002,
+    "maxLamportsPerTx": 20000000,
+    "maxPriorityMicroLamports": 1000000,
+    "defaultPerUserDailyTx": 100,
+    "defaultGlobalDailyTx": 10000,
+    "defaultLowBalanceUsd": 5,
+    "defaultPerUserDailyAccounts": 3
+  }
+}

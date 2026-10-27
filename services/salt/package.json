@@ -13,5 +13,9 @@
   },
   "dependencies": {
     "jose": "5.10.0"
+  },
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
   }
 }

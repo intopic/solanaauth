@@ -206,3 +206,28 @@ export function browserPasskey(credentialId: Uint8Array, publicKey: Uint8Array, 
     },
   };
 }
+
+/**
+ * Hyrja vetëm me passkey (pa Google): passkey-t që krijon faqja e portofolit kanë `user.id` =
+ * adresa e portofolit, prandaj një passkey "discoverable" tregon portofolin. Çelësi publik gjendet
+ * duke verifikuar nënshkrimin kundër passkey-ve të regjistruar në portofol.
+ */
+export async function discoverBrowserPasskey(
+  rpId: string,
+  passkeysOf: (wallet: PublicKey) => Promise<Uint8Array[]>,
+): Promise<{ wallet: PublicKey; signer: PasskeySigner; credentialId: Uint8Array }> {
+  const challenge = globalThis.crypto.getRandomValues(new Uint8Array(32));
+  const cred = (await navigator.credentials.get({
+    publicKey: { challenge: challenge as BufferSource, rpId, userVerification: "required" },
+  })) as PublicKeyCredential | null;
+  if (!cred) throw new Error("hyrja me passkey u anulua");
+  const resp = cred.response as AuthenticatorAssertionResponse;
+  if (!resp.userHandle || resp.userHandle.byteLength !== 32) throw new Error("ky passkey s'është krijuar nga faqja e portofolit");
+  const wallet = new PublicKey(new Uint8Array(resp.userHandle));
+  const msg = sha256(concat(new Uint8Array(resp.authenticatorData), sha256(new Uint8Array(resp.clientDataJSON))));
+  const sig = normalizeSignature(new Uint8Array(resp.signature));
+  const publicKey = (await passkeysOf(wallet)).find((pk) => p256.verify(sig, msg, pk, { lowS: true, prehash: false }));
+  if (!publicKey) throw new Error("passkey-i nuk është (më) i regjistruar në portofol");
+  const credentialId = new Uint8Array(cred.rawId);
+  return { wallet, signer: browserPasskey(credentialId, publicKey, rpId), credentialId };
+}

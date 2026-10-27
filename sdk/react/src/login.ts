@@ -32,8 +32,8 @@ export interface BrowserLoginOptions {
   sessionSecs?: number;
   storage?: KeyValueStorage;
   /**
-   * Kush paguan rent-in dhe tarifën e transaksionit të hyrjes. Parazgjedhja: vetë çelësi i sesionit
-   * (duhet SOL, p.sh. airdrop në devnet). Me paymaster (M5): dërgo transaksionin te sponsori.
+   * Dërgimi i transaksionit të hyrjes. Parazgjedhja: `feePayer` i klientit (paymaster, Kora,
+   * serveri i aplikacionit) nëse është dhënë, përndryshe vetë çelësi i sesionit (duhet SOL).
    */
   submit?: (tx: Transaction, connection: Connection) => Promise<string>;
   /** Thirret para dërgimit kur paguan çelësi i sesionit (p.sh. airdrop në devnet). */
@@ -93,7 +93,9 @@ export class BrowserLogin {
     const { transaction, session, created } = await this.auth.completeLogin(jwt, pending, this.opts.policy);
     const signature = this.opts.submit
       ? await this.opts.submit(transaction, this.auth.connection)
-      : await this.sendAsSessionKey(transaction, session);
+      : this.auth.feePayer
+        ? await this.auth.feePayer.submit(transaction)
+        : await this.sendAsSessionKey(transaction, session);
     this.storage.setItem(this.key, serializeSession(session));
     return { session, created, signature };
   }

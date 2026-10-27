@@ -365,6 +365,12 @@ fn solanaauth_m2() {
     let r = env.send(&[ix], &[&eph]);
     out.fail("execute: CPI te vetë programi", 37, r);
 
+    // Fee payer-i (p.sh. paymaster-i) nënshkruan tx-in; sesioni s'mund ta përdorë si nënshkrues.
+    let fee_payer = env.payer.pubkey();
+    let ix = env.ix_execute(&k, &gwallet, &[system_transfer(&fee_payer, &dest, 1)]);
+    let r = env.send(&[ix], &[&eph]);
+    out.fail("execute: fee payer-i si nënshkrues i instruksionit të brendshëm", 3, r);
+
     let ix = env.ix_execute(
         &other.pubkey(),
         &gwallet,
