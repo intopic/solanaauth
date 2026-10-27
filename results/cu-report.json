@@ -1,9 +1,79 @@
 {
-  "verdict": "PA MATJE",
-  "measurements": [
-    { "name": "verify_proof", "cu": null },
-    { "name": "poseidon (secili hap)", "cu": null },
-    { "name": "modulus RSA hash", "cu": null },
-    { "name": "verify_full", "cu": null }
-  ]
+  "verdict": "GO",
+  "decisive": { "label": "JWT e vërtetë Google, key mainnet, qarku v1", "verify_full_cu": 110428 },
+  "fixtures": [
+    {
+      "fixture": "google-mainnet-v1",
+      "measurements": [
+        { "name": "`verify_proof`", "cu": 78368, "tx_bytes": 500, "note": "Groth16 me groth16-solana (input-i publik jepet gati)" },
+        { "name": "↳ Groth16 (pa parsimin)", "cu": 78321, "tx_bytes": null, "note": "neg(A) + MSM me 1 input + pairing me 4 çifte" },
+        { "name": "**`verify_full`**", "cu": 110428, "tx_bytes": 954, "note": "**Poseidon (me modulus-in e plotë) + Groth16, kriteri GO/NO-GO**" },
+        { "name": "↳ Poseidon: header (8 input-e)", "cu": 8328, "tx_bytes": null, "note": "248 bytes → 8 copa × 31" },
+        { "name": "↳ Poseidon: iss (8 input-e)", "cu": 7844, "tx_bytes": null, "note": "224 bytes → 8 copa" },
+        { "name": "↳ Poseidon: modulus RSA (9 input-e)", "cu": 11083, "tx_bytes": null, "note": "2048 bit → 9 copa; kandidat për JWK registry" },
+        { "name": "↳ Poseidon: all_inputs_hash (8 input-e)", "cu": 4706, "tx_bytes": null, "note": "input-i i vetëm publik i qarkut" },
+        { "name": "↳ Groth16", "cu": 78360, "tx_bytes": null, "note": "" },
+        { "name": "↳ Poseidon gjithsej (4 thirrje)", "cu": 31961, "tx_bytes": null, "note": "" },
+        { "name": "`verify_full` (modulus i para-llogaritur)", "cu": 99356, "tx_bytes": 730, "note": "hash-i i modulus-it si nga një llogari JWK registry" },
+        { "name": "↳ Poseidon gjithsej (3 thirrje)", "cu": 20878, "tx_bytes": null, "note": "header + iss + all_inputs_hash" }
+      ]
+    },
+    {
+      "fixture": "dev-v1-pinned",
+      "measurements": [
+        { "name": "`verify_proof`", "cu": 78367, "tx_bytes": 500, "note": "Groth16 me groth16-solana (input-i publik jepet gati)" },
+        { "name": "↳ Groth16 (pa parsimin)", "cu": 78320, "tx_bytes": null, "note": "neg(A) + MSM me 1 input + pairing me 4 çifte" },
+        { "name": "**`verify_full`**", "cu": 110280, "tx_bytes": 905, "note": "**Poseidon (me modulus-in e plotë) + Groth16, kriteri GO/NO-GO**" },
+        { "name": "↳ Poseidon: header (8 input-e)", "cu": 8208, "tx_bytes": null, "note": "248 bytes → 8 copa × 31" },
+        { "name": "↳ Poseidon: iss (8 input-e)", "cu": 7817, "tx_bytes": null, "note": "224 bytes → 8 copa" },
+        { "name": "↳ Poseidon: modulus RSA (9 input-e)", "cu": 11083, "tx_bytes": null, "note": "2048 bit → 9 copa; kandidat për JWK registry" },
+        { "name": "↳ Poseidon: all_inputs_hash (8 input-e)", "cu": 4706, "tx_bytes": null, "note": "input-i i vetëm publik i qarkut" },
+        { "name": "↳ Groth16", "cu": 78359, "tx_bytes": null, "note": "" },
+        { "name": "↳ Poseidon gjithsej (4 thirrje)", "cu": 31814, "tx_bytes": null, "note": "" },
+        { "name": "`verify_full` (modulus i para-llogaritur)", "cu": 99208, "tx_bytes": 681, "note": "hash-i i modulus-it si nga një llogari JWK registry" },
+        { "name": "↳ Poseidon gjithsej (3 thirrje)", "cu": 20731, "tx_bytes": null, "note": "header + iss + all_inputs_hash" }
+      ]
+    },
+    {
+      "fixture": "dev-v2-pinned",
+      "measurements": [
+        { "name": "`verify_proof`", "cu": 78370, "tx_bytes": 500, "note": "Groth16 me groth16-solana (input-i publik jepet gati)" },
+        { "name": "↳ Groth16 (pa parsimin)", "cu": 78323, "tx_bytes": null, "note": "neg(A) + MSM me 1 input + pairing me 4 çifte" },
+        { "name": "`verify_full` (modulus i plotë)", "cu": null, "tx_bytes": 1681, "note": "s'mbështetet: 8192 bit → 34 copa, Sui përdor Poseidon me 16 input-e, `sol_poseidon` pranon ≤ 12; tx 1681 > 1232 bytes" },
+        { "name": "`verify_full` (modulus i para-llogaritur)", "cu": 98427, "tx_bytes": 689, "note": "hash-i i modulus-it si nga një llogari JWK registry" },
+        { "name": "↳ Poseidon gjithsej (3 thirrje)", "cu": 19948, "tx_bytes": null, "note": "header + iss + all_inputs_hash" }
+      ]
+    }
+  ],
+  "negative_tests": [
+    { "fixture": "google-mainnet-v1", "case": "verify_proof: 1 byte në A", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_proof: 1 byte në B", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_proof: 1 byte në C", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_proof: 1 byte në input-in publik", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_proof: verifying key tjetër (main ↔ test)", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_full: 1 byte në provë (A)", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_full: 1 byte në provë (C)", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_full: 1 byte në çelësin ephemeral", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_full: max_epoch + 1", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_full: 1 byte në address_seed", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_full: 1 byte në iss", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_full: index_mod_4 tjetër", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_full: 1 byte në header", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "google-mainnet-v1", "case": "verify_full: 1 byte në modulus-in RSA", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_proof: 1 byte në A", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_proof: 1 byte në B", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_proof: 1 byte në C", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_proof: 1 byte në input-in publik", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_proof: verifying key tjetër (main ↔ test)", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_full: 1 byte në provë (A)", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_full: 1 byte në provë (C)", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_full: 1 byte në çelësin ephemeral", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_full: max_epoch + 1", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_full: 1 byte në address_seed", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_full: 1 byte në iss", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_full: index_mod_4 tjetër", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_full: 1 byte në header", "rejected": true, "detail": "Custom(3)" },
+    { "fixture": "dev-v1-pinned", "case": "verify_full: 1 byte në modulus-in RSA", "rejected": true, "detail": "Custom(3)" }
+  ],
+  "meta": { "program.so sha256": "65cbb7790d1860a24ec905c329feea7825287e6371fb49a6370b2e18dda3add2", "svm": "litesvm 0.17.0 (Agave 4.x feature set)", "commit": "d13615e7a7ce2f3ca01800d1f8bd3ecb366913d8", "solana": "solana-cli 4.3.2 (src:92555e42; feat:c9ad34d2, client:Agave)" }
 }
