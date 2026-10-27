@@ -10,6 +10,7 @@
     "@solana/kit": "8.5.0",
     "@solana/web3.js": "1.98.4",
     "@solanaauth/core": "0.1.0",
+    "bs58": "4.0.1",
     "litesvm": "1.5.0"
   }
 }

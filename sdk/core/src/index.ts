@@ -6,3 +6,4 @@ export * from "./instructions.js";
 export * from "./passkey.js";
 export * from "./pda.js";
 export * from "./zklogin.js";
+export * from "./message.js";

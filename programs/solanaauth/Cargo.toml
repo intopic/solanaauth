@@ -28,3 +28,6 @@ solana-address = { version = "2", features = ["curve25519"] }
 [lints.rust.unexpected_cfgs]
 level = "warn"
 check-cfg = ['cfg(target_os, values("solana"))']
+
+[dev-dependencies]
+proptest = "1.5"

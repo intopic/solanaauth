@@ -1,7 +1,8 @@
 // Mjedisi i përbashkët i testeve: programi i vërtetë në LiteSVM, config + JWK e Google.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
+import bs58 from "bs58";
 import { LiteSVM, Clock, FailedTransactionMetadata } from "litesvm";
 import { address, getTransactionDecoder } from "@solana/kit";
 import * as sa from "@solanaauth/core";
@@ -77,13 +78,13 @@ export function svmConnection(svm) {
     },
     async getAccountInfo(pk) {
       const a = svm.getAccount(A(pk));
-      return a?.exists === false || !a?.data ? null : { data: Buffer.from(a.data) };
+      return a?.exists === false || !a?.data ? null : { data: Buffer.from(a.data), owner: new PublicKey(a.programAddress), lamports: Number(a.lamports), executable: a.executable };
     },
     async getBalance(pk) { return Number(svm.getBalance(A(pk)) ?? 0n); },
     async sendRawTransaction(raw) {
       const r = svm.sendTransaction(getTransactionDecoder().decode(raw));
       if (r instanceof FailedTransactionMetadata) throw Object.assign(new Error(r.toString()), { logs: r.meta().logs() });
-      return Buffer.from(r.signature()).toString("hex");
+      return bs58.encode(r.signature());
     },
     async confirmTransaction() { return { value: { err: null } }; },
   };
@@ -108,4 +109,66 @@ export async function fixtureLogin(w, { policy, feePayer, connection = svmConnec
     await feePayer.submit(transaction);
   }
   return { client, session, connection };
+}
+
+// ---- SPL Token (pa @solana/spl-token): mint, ATA dhe mintTo me instruksione të papërpunuara.
+export const TOKEN = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+export const ATA = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+export const ata = (owner, mint) => PublicKey.findProgramAddressSync([owner.toBuffer(), TOKEN.toBuffer(), mint.toBuffer()], ATA)[0];
+
+function sendRaw(svm, ixs, signers) {
+  svm.expireBlockhash();
+  const tx = new Transaction();
+  tx.recentBlockhash = svm.latestBlockhash();
+  tx.feePayer = signers[0].publicKey;
+  tx.add(...ixs);
+  tx.sign(...signers);
+  const r = svm.sendTransaction(getTransactionDecoder().decode(tx.serialize()));
+  if (r instanceof FailedTransactionMetadata) throw new Error(r.toString());
+}
+
+export function createMint(svm, authority, decimals = 6) {
+  const mint = Keypair.generate();
+  const data = Buffer.alloc(67);
+  data[0] = 20;
+  data[1] = decimals;
+  authority.publicKey.toBuffer().copy(data, 2);
+  sendRaw(svm, [
+    SystemProgram.createAccount({ fromPubkey: authority.publicKey, newAccountPubkey: mint.publicKey, lamports: 1_461_600, space: 82, programId: TOKEN }),
+    new TransactionInstruction({ programId: TOKEN, data, keys: [{ pubkey: mint.publicKey, isSigner: false, isWritable: true }] }),
+  ], [authority, mint]);
+  return mint.publicKey;
+}
+
+/** Krijon ATA-në e `owner` (nëse s'ekziston) dhe i jep `amount`. */
+export function mintTo(svm, authority, mint, owner, amount) {
+  const dest = ata(owner, mint);
+  const create = new TransactionInstruction({
+    programId: ATA,
+    data: Buffer.from([1]),
+    keys: [
+      { pubkey: authority.publicKey, isSigner: true, isWritable: true },
+      { pubkey: dest, isSigner: false, isWritable: true },
+      { pubkey: owner, isSigner: false, isWritable: false },
+      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      { pubkey: TOKEN, isSigner: false, isWritable: false },
+    ],
+  });
+  const data = Buffer.alloc(9);
+  data[0] = 7;
+  data.writeBigUInt64LE(BigInt(amount), 1);
+  const ixs = [create];
+  if (amount > 0) ixs.push(new TransactionInstruction({ programId: TOKEN, data, keys: [
+    { pubkey: mint, isSigner: false, isWritable: true },
+    { pubkey: dest, isSigner: false, isWritable: true },
+    { pubkey: authority.publicKey, isSigner: true, isWritable: false },
+  ] }));
+  sendRaw(svm, ixs, [authority]);
+  return dest;
+}
+
+export function tokenBalance(svm, account) {
+  const a = svm.getAccount(A(account));
+  return Buffer.from(a.data).readBigUInt64LE(64);
 }
