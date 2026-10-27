@@ -8,7 +8,7 @@ import { createSaltService } from "@solanaauth/salt-service";
 import type { JWTVerifyGetKey } from "jose";
 
 import { Pricing, micro, monthRange, summarize } from "./pricing.js";
-import { App, ApiKey, PlanId, Store, newId, sha256hex } from "./store.js";
+import { App, ApiKey, PlanId, Store, newId, sha256hex, effectivePlan } from "./store.js";
 
 export class PlatformError extends Error {
   constructor(public status: number, message: string) {
@@ -122,7 +122,7 @@ export class Platform {
   /** Plani Falas në mainnet: një përdorues i ri përtej kuotës MAU refuzohet (s'ka mbi-kuotë). */
   private enforceQuota(app: App, subject: string) {
     if (this.o.network === "devnet") return;
-    const plan = this.o.pricing.plans[app.plan];
+    const plan = this.o.pricing.plans[effectivePlan(app, this.now())];
     if (plan.overageMauUsd !== null || plan.includedMau === null) return;
     const [from, to] = monthRange(new Date(this.now() * 1000).toISOString().slice(0, 7));
     const ev = this.o.store.usage(app.id, from, to);

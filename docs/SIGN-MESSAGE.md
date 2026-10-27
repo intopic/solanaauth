@@ -57,17 +57,19 @@ const r = await verifySessionMessage(connection, programId, sig, message);
 if (!r.valid) throw new Error(r.reason);
 ```
 
-Wallet Standard (`@solanaauth/wallet-standard`) e ekspozon si `solana:signMessage`: `signature` është
-nënshkrimi Ed25519 mbi `msg`, dhe `signedMessage` është mesazhi origjinal i dApp-it (`signatureType`
-mbetet `"ed25519"`, i vetmi që lejon standardi). Adresat `wallet` dhe `session` merren nga veçoria
-shtesë `"solanaauth:session"`:
+Wallet Standard (`@solanaauth/wallet-standard`) e ekspozon përmes veçorisë
+`"solanaauth:session"`. Nuk reklamon `solana:signMessage`, sepse vault-i nuk ka çelës Ed25519.
+Rezultati përmban `signatureType: "solanaauth-session-v1"`, `wallet`, `session`,
+`signature` dhe `signedMessage` (mesazhi origjinal). Integrimet ekzistuese duhet të kalojnë te:
 
 ```ts
 const info = wallet.features["solanaauth:session"]?.getSession(); // { wallet, session, vault, expiresAt }
+const [sig] = await wallet.features["solanaauth:session"].signMessage({ account, message });
 ```
  Një dApp që verifikon me
 Ed25519 kundër `account.publicKey` (vault-i) do të dështojë; duhet të përdorë `verifySessionMessage`
-ose hapat më sipër. Sign-In With Solana (SIWS) punon njësoj, me mesazhin SIWS si `message`.
+ose hapat më sipër. Një mesazh SIWS kërkon po këtë verifikim të sesionit; integrimet që kërkojnë
+vetëm nënshkrim Ed25519 nga vault-i nuk janë të pajtueshme.
 
 ## On-chain (opsionale, e planifikuar)
 

@@ -36,7 +36,7 @@ fn main() {
         );
         let out = out_dir.join(rs);
         if check {
-            if std::fs::read_to_string(&out).ok().as_deref() != Some(code.as_str()) {
+            if std::fs::read_to_string(&out).ok().map(|s| s.replace("\r\n", "\n")).as_deref() != Some(code.as_str()) {
                 stale.push(rs);
             }
         } else {

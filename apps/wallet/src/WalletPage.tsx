@@ -63,6 +63,11 @@ function Dashboard({ s, setS, run, busy, err }: { s: w.State; setS: (s: w.State 
         <div className="row"><span className="muted">hyrë me {mode}</span><button onClick={() => setS(null)}>Dil</button></div>
       </header>
       <p>Adresa për depozita: <code>{s.vault.toBase58()}</code></p>
+      {!s.passkey && !!acc?.passkeys.length && <button onClick={() => run("Po lidhet passkey-i…", async () => setS(await w.attachPasskey(s)))}>Lidh passkey ekzistues</button>}
+      {s.passkey && !s.zk && <div className="row">
+        <button onClick={() => w.startLogin("google", s.wallet)}>Lidh Google për tërheqje ose rikuperim</button>
+        {import.meta.env.VITE_APPLE_CLIENT_ID && <button onClick={() => w.startLogin("apple", s.wallet)}>Lidh Apple për tërheqje ose rikuperim</button>}
+      </div>}
       {busy && <p>{busy}</p>}
       {err && <p className="bad">{err}</p>}
       {!acc && <p className="muted">Portofoli s'është krijuar ende.</p>}

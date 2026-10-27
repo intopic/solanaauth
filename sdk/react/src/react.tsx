@@ -74,7 +74,7 @@ export function SolanaAuthProvider({ config, children, onLogin, ...loginOpts }: 
         }
       },
       async logout(onChain = true) {
-        await login.logout(onChain).catch(() => null);
+        await login.logout(onChain);
         setSession(null);
         setStatus("idle");
       },

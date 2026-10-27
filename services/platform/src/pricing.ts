@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import type { PlanId, UsageEvent } from "./store.js";
 
@@ -28,7 +29,7 @@ export interface Pricing {
   };
 }
 
-export function loadPricing(path = process.env.PRICING_FILE ?? new URL("../../../config/pricing.json", import.meta.url).pathname): Pricing {
+export function loadPricing(path = process.env.PRICING_FILE ?? fileURLToPath(new URL("../../../config/pricing.json", import.meta.url))): Pricing {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 

@@ -19,18 +19,23 @@ export class Writer {
   }
 
   u32(v: number): this {
+    if (!Number.isSafeInteger(v) || v < 0 || v > 0xffffffff) throw new RangeError(`u32: ${v}`);
     const b = new Uint8Array(4);
     new DataView(b.buffer).setUint32(0, v, true);
     return this.bytes(b);
   }
 
   u64(v: bigint | number): this {
+    if (typeof v === "number" && !Number.isSafeInteger(v)) throw new RangeError(`u64: ${v}`);
+    if (BigInt(v) < 0n || BigInt(v) > 0xffffffffffffffffn) throw new RangeError(`u64: ${v}`);
     const b = new Uint8Array(8);
     new DataView(b.buffer).setBigUint64(0, BigInt(v), true);
     return this.bytes(b);
   }
 
   i64(v: bigint | number): this {
+    if (typeof v === "number" && !Number.isSafeInteger(v)) throw new RangeError(`i64: ${v}`);
+    if (BigInt(v) < -(2n ** 63n) || BigInt(v) >= 2n ** 63n) throw new RangeError(`i64: ${v}`);
     const b = new Uint8Array(8);
     new DataView(b.buffer).setBigInt64(0, BigInt(v), true);
     return this.bytes(b);

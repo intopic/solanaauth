@@ -200,6 +200,7 @@ export interface AgentLoginOptions {
  * (faqja e portofolit, M5); këtu ajo printohet para hyrjes.
  */
 export async function loginAgent(o: AgentLoginOptions): Promise<{ wallet: AgentWallet; created: boolean; signature: string }> {
+  if (o.provider === "apple") throw new Error("Apple requires an HTTPS domain callback; use BrowserLogin instead of a loopback login");
   const auth = new SolanaAuth({ client: "agent", ...o.config });
   const pending = auth.beginLogin(o.sessionSecs ?? o.policy.expiresIn, o.now);
   const state = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("hex");

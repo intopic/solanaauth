@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 // Paymaster-i kundër programit të vërtetë në LiteSVM.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +8,7 @@ import * as sa from "@solanaauth/core";
 import { MemoryStore, Paymaster, Platform, loadPricing } from "../dist/index.js";
 import { A, FX, available, world } from "@solanaauth/testkit";
 
-const pricing = loadPricing(new URL("../../../config/pricing.json", import.meta.url).pathname);
+const pricing = loadPricing(fileURLToPath(new URL("../../../config/pricing.json", import.meta.url)));
 
 test("paymaster: hyrja dhe execute të sponsorizuara; refuzimet", { skip: !available && "mungon solanaauth.so" }, async () => {
   const { svm, programId, feePayer, chain, iss } = world();

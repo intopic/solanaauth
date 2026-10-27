@@ -10,7 +10,7 @@
  * oracle i komprometuar mund vetëm të propozojë, dhe çdo propozim duket on-chain gjatë timelock-ut.
  */
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
-import { applyJwk, base64UrlDecode, decodeJwk, jwkAddress, proposeJwk } from "@solanaauth/core";
+import { applyJwk, base64UrlDecode, decodeJwk, jwkAddress, proposeJwk, poseidonHash, fromBigEndian, toBigEndian } from "@solanaauth/core";
 
 export const PROVIDERS: Record<string, { iss: string; jwksUrl: string }> = {
   google: { iss: "https://accounts.google.com", jwksUrl: "https://www.googleapis.com/oauth2/v3/certs" },
@@ -45,6 +45,8 @@ export interface SyncOptions {
   payer: PublicKey;
   /** Sa sekonda pas tani mbetet i vlefshëm një çelës i ri (parazgjedhja: 2^62, pa skadim). */
   validitySecs?: number;
+  /** Must cover the configured JWK timelock when finite validity is used. */
+  renewBeforeSecs?: number;
 }
 
 export async function planSync(chain: Chain, iss: string, keys: Jwk[], o: SyncOptions): Promise<Action[]> {
@@ -62,7 +64,24 @@ export async function planSync(chain: Chain, iss: string, keys: Jwk[], o: SyncOp
     }
     const addr = jwkAddress(o.programId, iss, k.kid);
     const data = await chain.getAccountData(addr);
-    if (!data) {
+    const modulus = base64UrlDecode(k.n);
+    if (!modulus.length || modulus.length > 256 || modulus[0] === 0) {
+      out.push({ kind: "skip", iss, kid: k.kid, reason: "modulus i pambështetur për qarkun v1" });
+      continue;
+    }
+    const padded = new Uint8Array(256);
+    padded.set(modulus, 256 - modulus.length);
+    const chunks: bigint[] = [];
+    for (let end = 256; end > 0; end -= 31) chunks.unshift(fromBigEndian(padded.subarray(Math.max(0, end - 31), end)));
+    const expectedHash = toBigEndian(poseidonHash(chunks));
+    const matches = (hash: Uint8Array) => hash.every((b, i) => b === expectedHash[i]);
+    const acc = data ? decodeJwk(data) : null;
+    if (acc?.revoked) {
+      out.push({ kind: "skip", iss, kid: k.kid, reason: "i revokuar nga admini" });
+      continue;
+    }
+    const renewBefore = o.renewBeforeSecs ?? Math.min(86400, (o.validitySecs ?? 345600) / 4);
+    if (!acc || (acc.pending ? !matches(acc.pending.modulusHash) : !acc.active || !matches(acc.active.modulusHash) || acc.active.validUntil <= BigInt(Math.floor(now + renewBefore)))) {
       const validUntil = o.validitySecs ? BigInt(now + o.validitySecs) : 2n ** 62n;
       out.push({
         kind: "propose",
@@ -71,19 +90,16 @@ export async function planSync(chain: Chain, iss: string, keys: Jwk[], o: SyncOp
         instruction: proposeJwk(o.programId, o.oracle, o.payer, {
           iss,
           kid: k.kid,
-          modulus: base64UrlDecode(k.n),
+          modulus,
           validFrom: 0,
           validUntil,
         }),
       });
       continue;
     }
-    const acc = decodeJwk(data);
     if (acc.pending) {
       if (BigInt(now) >= acc.pending.eta) out.push({ kind: "apply", iss, kid: k.kid, instruction: applyJwk(o.programId, addr) });
       else out.push({ kind: "wait", iss, kid: k.kid, eta: acc.pending.eta });
-    } else if (acc.revoked) {
-      out.push({ kind: "skip", iss, kid: k.kid, reason: "i revokuar nga admini" });
     } else {
       out.push({ kind: "ok", iss, kid: k.kid });
     }

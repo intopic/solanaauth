@@ -69,17 +69,77 @@ export interface UsageEvent {
   network?: "devnet" | "mainnet";
 }
 
+export interface Sponsorship {
+  id: string;
+  appId: string;
+  subject: string;
+  accountOperations: number;
+  createdAt: number;
+  status: "pending" | "confirmed" | "failed";
+  signedTransaction: string;
+  reservedMicroUsd: number;
+  lamports: number;
+  signature?: string;
+  chargedMicroUsd?: number;
+  network: "devnet" | "mainnet";
+}
+
 interface Data {
   apps: App[];
   ledger: LedgerEntry[];
   usage: UsageEvent[];
+  sponsorships: Sponsorship[];
 }
 
 export const newId = (p: string) => `${p}_${randomBytes(9).toString("base64url")}`;
 export const sha256hex = (s: string) => createHash("sha256").update(s).digest("hex");
+export const effectivePlan = (app: App, now = Math.floor(Date.now() / 1000)): PlanId =>
+  (app.plan === "starter" || app.plan === "growth") && app.paidUntil <= now ? "free" : app.plan;
 
 export class MemoryStore {
-  protected d: Data = { apps: [], ledger: [], usage: [] };
+  protected d: Data = { apps: [], ledger: [], usage: [], sponsorships: [] };
+  private queues = new Map<string, Promise<unknown>>();
+
+  /** One shared queue per app, including across Paymaster instances using this store. */
+  async withApp<T>(appId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.queues.get(appId) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(fn);
+    this.queues.set(appId, next);
+    try { return await next; }
+    finally { if (this.queues.get(appId) === next) this.queues.delete(appId); }
+  }
+
+  sponsorship(id: string): Sponsorship | undefined { return this.d.sponsorships.find(s => s.id === id); }
+  pending(appId: string): Sponsorship[] { return this.d.sponsorships.filter(s => s.appId === appId && s.status === "pending"); }
+  reserve(s: Sponsorship) {
+    if (this.sponsorship(s.id)) throw new Error("duplicate sponsorship");
+    const app = this.app(s.appId);
+    const reserved = this.pending(s.appId).reduce((n, p) => n + p.reservedMicroUsd, 0);
+    if (!app || !Number.isSafeInteger(s.reservedMicroUsd) || s.reservedMicroUsd < 0 || app.balanceMicroUsd - reserved < s.reservedMicroUsd) throw new Error("insufficient reservation balance");
+    this.d.sponsorships.push(s);
+    this.save();
+  }
+
+  failSponsorship(s: Sponsorship) { s.status = "failed"; this.save(); }
+
+  /** Persist the debit, usage and receipt in a single snapshot. Retries do not debit again. */
+  completeSponsorship(s: Sponsorship, signature: string, microUsd: number, lamports: number, ts: number) {
+    if (s.status === "confirmed") return;
+    if (s.status !== "pending" || !Number.isSafeInteger(microUsd) || microUsd < 0 || microUsd > s.reservedMicroUsd) throw new Error("invalid settlement");
+    const app = this.app(s.appId)!;
+    if (app.balanceMicroUsd < microUsd) throw new Error("reservation invariant violated");
+    if (this.hasRef(signature)) throw new Error("signature already settled");
+    app.balanceMicroUsd -= microUsd;
+    this.d.ledger.push({ id: newId("le"), appId: app.id, ts, kind: "charge", microUsd, ref: signature, details: { lamports, subject: s.subject } });
+    const event = { appId: app.id, ts, subject: sha256hex(s.subject), network: s.network };
+    this.d.usage.push({ ...event, kind: "sponsored_tx" });
+    for (let i = 0; i < s.accountOperations; i++) this.d.usage.push({ ...event, kind: "sponsored_account" });
+    s.status = "confirmed";
+    s.signature = signature;
+    s.chargedMicroUsd = microUsd;
+    s.lamports = lamports;
+    this.save();
+  }
 
   protected save() {}
 
@@ -113,9 +173,12 @@ export class MemoryStore {
 
   /** Shton një hyrje dhe ndryshon bilancin atomikisht. Kthen false nëse `ref` ekziston (depozitë e dyfishtë). */
   addLedger(e: Omit<LedgerEntry, "id">): boolean {
-    if (e.kind === "deposit" && this.hasRef(e.ref)) return false;
+    if (this.hasRef(e.ref)) return false;
     const app = this.app(e.appId);
     if (!app) throw new Error("aplikacion i panjohur");
+    if (!Number.isSafeInteger(e.microUsd) || e.microUsd < 0) throw new Error("invalid ledger amount");
+    const reserved = this.pending(app.id).reduce((n, s) => n + s.reservedMicroUsd, 0);
+    if (e.kind === "charge" && app.balanceMicroUsd - reserved < e.microUsd) throw new Error("insufficient balance");
     app.balanceMicroUsd += e.kind === "charge" ? -e.microUsd : e.microUsd;
     this.d.ledger.push({ id: newId("le"), ...e });
     this.save();
@@ -136,6 +199,7 @@ export class FileStore extends MemoryStore {
   constructor(private path: string) {
     super();
     if (existsSync(path)) this.d = JSON.parse(readFileSync(path, "utf8"));
+    this.d.sponsorships ??= [];
   }
 
   protected override save() {
