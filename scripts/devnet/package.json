@@ -1,0 +1,9 @@
+{
+  "name": "solanaauth-devnet",
+  "private": true,
+  "type": "module",
+  "description": "Dërgon instruksionet e provave referencë te programi në devnet dhe shkruan results/devnet-report.md",
+  "dependencies": {
+    "@solana/web3.js": "1.98.4"
+  }
+}

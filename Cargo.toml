@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["reference", "bench"]
+members = ["reference", "bench", "scripts/vk-convert"]
 # Programi on-chain ndërtohet veçmas me `cargo build-sbf`
 exclude = ["programs/zklogin-verifier"]
 

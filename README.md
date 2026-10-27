@@ -52,35 +52,38 @@ Tabela përditësohet automatikisht nga CI në çdo push në `main`. Pranojmë v
 
 ```text
 solanaauth/
-├── programs/zklogin-verifier/    # programi Solana (Anchor ose native) — ndërtohet me cargo build-sbf
+├── programs/zklogin-verifier/    # programi Solana (native, pinocchio): verify_proof, verify_full
 ├── reference/                    # verifikimi off-chain me sui-crypto (e vërteta referencë)
-├── fixtures/                     # test vectors: prova, input-et, verifying key
-├── bench/                        # matjet e CU (Mollusk / LiteSVM) → results/
-├── scripts/                      # update_readme.py, devnet.sh, konvertimi i key-t
+├── fixtures/                     # 3 prova zkLogin (Google mainnet v1, dev v1, dev v2) + verifying keys
+├── bench/                        # testet në host + matjet e CU në LiteSVM → results/
+├── scripts/                      # vk-convert (Detyra 3), update_readme.py, devnet.sh + devnet/run.mjs
 ├── results/                      # cu-report.json + cu-report.md (i përditësuar nga CI)
 ├── docs/HAPI-1-BRIEF.md          # brief-i i developer-it
+├── docs/HAPI-1-RAPORT.md         # raporti GO / NO-GO
 └── .github/workflows/ci.yml
 ```
 
 ## Si riprodhohet
 
 ```bash
-# Rust stable, Solana CLI (Anza) 4.x, Node.js 20+
+# Rust stable, Solana CLI (Anza) 4.x, Node.js 20+ (vetëm për devnet)
 sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
 
-cargo test -p reference -- --nocapture   # verifikimi referencë off-chain
+cargo run -p vk-convert -- --check                          # Detyra 3: key-t e konvertuara janë në rregull
+cargo test -p reference -- --nocapture                      # Detyra 2: sui-crypto i pranon provat
+cargo test -p bench --lib --test host -- --nocapture        # kodi i programit në host == referenca, bit për bit
 cargo build-sbf --manifest-path programs/zklogin-verifier/Cargo.toml
-cargo test -p bench -- --nocapture       # matjet e CU → results/
+cargo test -p bench --test cu_report -- --nocapture         # Detyra 6–7: CU në LiteSVM + testet negative → results/
 ```
 
 ## CI
 
 Workflow-i [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
 
-1. **build** — `cargo build-sbf` për programin (anashkalohet derisa të shtohet `programs/zklogin-verifier/Cargo.toml`).
-2. **reference** — `cargo test -p reference`.
-3. **bench** — `cargo test -p bench`, shkruan `results/cu-report.{json,md}`, i shfaq në Job Summary dhe i ngarkon si artifact.
+1. **build** — `cargo build-sbf` për programin; `.so` ngarkohet si artifact.
+2. **reference** — `vk-convert --check`, `cargo test -p reference` dhe testet në host.
+3. **bench** — ngarkon `.so` në LiteSVM, mat CU, teston rastet negative, shkruan `results/cu-report.{json,md}`, i shfaq në Job Summary dhe i ngarkon si artifact.
 4. **publish** — në `main` bën commit të `results/` dhe të tabelës më sipër; në tag `v*` krijon një GitHub Release me raportin.
-5. **devnet** (manuale) — *Actions → ci → Run workflow → devnet*: deploy në devnet me secret-in `DEVNET_DEPLOYER_KEYPAIR`.
+5. **devnet** (manuale) — *Actions → ci → Run workflow → devnet*: deploy në devnet me secret-in `DEVNET_DEPLOYER_KEYPAIR` (dhe opsionalisht `DEVNET_PROGRAM_KEYPAIR` për adresë të qëndrueshme), ekzekuton instruksionet e provave referencë dhe shkruan `results/devnet-report.md` me nënshkrimet.
 
 **Siguria:** asnjë çelës mainnet në repo apo në Secrets. I vetmi secret është `DEVNET_DEPLOYER_KEYPAIR`, një çelës devnet pa vlerë reale.

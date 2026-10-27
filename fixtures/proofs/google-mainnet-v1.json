@@ -1,0 +1,58 @@
+{
+  "name": "google-mainnet-v1",
+  "description": "JWT e v\u00ebrtet\u00eb nga Google (accounts.google.com), prov\u00eb e verifikuar me verifying key-n MAINNET t\u00eb ceremonis\u00eb (qarku v1). Burimi: sui-crypto verify.rs::test_verify_zklogin_google.",
+  "source": "https://github.com/MystenLabs/sui-rust-sdk/blob/main/crates/sui-crypto/src/zklogin/verify.rs",
+  "circuit": "v1",
+  "vk": "zkLogin-main.vkey.json",
+  "max_epoch": 10,
+  "ephemeral_private_key_hex": "9bf49a6a0755f953811fce125f2683d50429c3bb49e074147e0089a52eae155f",
+  "address_seed_inputs": {
+    "user_salt": "206703048842351542647799591018316385612",
+    "claim_name": "sub",
+    "claim_value": "106294049240999307923",
+    "aud": "25769832374-famecqrhe2gkebt5fvqms2263046lj96.apps.googleusercontent.com"
+  },
+  "inputs": {
+    "proof_points": {
+      "a": [
+        "8247215875293406890829839156897863742504615191361518281091302475904551111016",
+        "6872980335748205979379321982220498484242209225765686471076081944034292159666",
+        "1"
+      ],
+      "b": [
+        [
+          "21419680064642047510915171723230639588631899775315750803416713283740137406807",
+          "21566716915562037737681888858382287035712341650647439119820808127161946325890"
+        ],
+        [
+          "17867714710686394159919998503724240212517838710399045289784307078087926404555",
+          "21812769875502013113255155836896615164559280911997219958031852239645061854221"
+        ],
+        [
+          "1",
+          "0"
+        ]
+      ],
+      "c": [
+        "7530826803702928198368421787278524256623871560746240215547076095911132653214",
+        "16244547936249959771862454850485726883972969173921727256151991751860694123976",
+        "1"
+      ]
+    },
+    "iss_base64_details": {
+      "value": "yJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLC",
+      "index_mod_4": 1
+    },
+    "header_base64": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjZmNzI1NDEwMWY1NmU0MWNmMzVjOTkyNmRlODRhMmQ1NTJiNGM2ZjEiLCJ0eXAiOiJKV1QifQ",
+    "address_seed": "13319968244245342702944364608316777772547259798425697923099390355538529931211"
+  },
+  "jwk": {
+    "iss": "https://accounts.google.com",
+    "kid": "6f7254101f56e41cf35c9926de84a2d552b4c6f1",
+    "kty": "RSA",
+    "e": "AQAB",
+    "alg": "RS256",
+    "n": "oUriU8GqbRw-avcMn95DGW1cpZR1IoM6L7krfrWvLSSCcSX6Ig117o25Yk7QWBiJpaPV0FbP7Y5-DmThZ3SaF0AXW-3BsKPEXfFfeKVc6vBqk3t5mKlNEowjdvNTSzoOXO5UIHwsXaxiJlbMRalaFEUm-2CKgmXl1ss_yGh1OHkfnBiGsfQUndKoHiZuDzBMGw8Sf67am_Ok-4FShK0NuR3-q33aB_3Z7obC71dejSLWFOEcKUVCaw6DGVuLog3x506h1QQ1r0FXKOQxnmqrRgpoHqGSouuG35oZve1vgCU4vLZ6EAgBAbC0KL35I7_0wUDSMpiAvf7iZxzJVbspkQ"
+  },
+  "expected_all_inputs_hash": null
+}
