@@ -73,6 +73,22 @@ export interface FeePayer {
   submit(tx: Transaction): Promise<string>;
 }
 
+/** A signature alone is not proof of success: confirmation can contain an instruction error. */
+export async function confirmTransaction(
+  connection: Connection,
+  signature: string,
+  tx?: Transaction,
+  commitment: Commitment = "confirmed",
+): Promise<void> {
+  const strategy = tx?.recentBlockhash && tx.lastValidBlockHeight !== undefined
+    ? { signature, blockhash: tx.recentBlockhash, lastValidBlockHeight: tx.lastValidBlockHeight }
+    : signature;
+  const result = typeof strategy === "string"
+    ? await connection.confirmTransaction(strategy, commitment)
+    : await connection.confirmTransaction(strategy, commitment);
+  if (result.value.err) throw new Error(`transaction failed: ${JSON.stringify(result.value.err)}`);
+}
+
 const b64 = (tx: Transaction) => {
   const raw = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
   let s = "";
@@ -180,8 +196,8 @@ export class SolanaAuth {
     const q = new URLSearchParams({
       client_id: p.clientId,
       redirect_uri: p.redirectUri,
-      response_type: "id_token",
-      scope: "openid",
+      response_type: p.provider === "apple" ? "code id_token" : "id_token",
+      ...(p.provider === "google" ? { scope: "openid" } : {}),
       nonce: p.nonce,
       ...(p.provider === "apple" ? { response_mode: "fragment" } : {}),
       ...(p.state ? { state: p.state } : {}),
@@ -324,7 +340,9 @@ export class SolanaAuth {
     const p = payer ?? sessionKey;
     const tx = await this.transaction(instructions, p.publicKey);
     tx.sign(...(p === sessionKey ? [p] : [p, sessionKey]));
-    return this.connection.sendRawTransaction(tx.serialize());
+    const signature = await this.connection.sendRawTransaction(tx.serialize());
+    await confirmTransaction(this.connection, signature, tx, this.opts.commitment);
+    return signature;
   }
 }
 

@@ -1,5 +1,6 @@
 FROM node:22-alpine AS build
 WORKDIR /app
+COPY package.json ./
 COPY src ./src
 RUN npm install --no-audit --no-fund typescript@5.9.3 @types/node@22.15.0 \
  && npx tsc --module NodeNext --moduleResolution NodeNext --target ES2022 --strict --types node --outDir dist src/*.ts

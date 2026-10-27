@@ -20,10 +20,15 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "test:security": "node --test --test-timeout=120000 tests/security-regressions.test.mjs"
+  },
+  "overrides": {
+    "jayson": "5.0.0"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
-    "@types/node": "22.15.0"
+    "@types/node": "22.15.0",
+    "jayson": "5.0.0",
+    "typescript": "5.9.3"
   }
 }

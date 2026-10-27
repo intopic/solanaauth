@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 // Demo M5: e njëjta hyrje + execute me SDK-në, me paymaster ON (përdoruesi pa SOL) dhe OFF
 // (paguan serveri i aplikacionit si fee payer).
 import { test } from "node:test";
@@ -9,7 +10,7 @@ import * as sa from "@solanaauth/core";
 import { MemoryStore, OwnerAuth, Paymaster, Platform, createHandler, loadPricing } from "../dist/index.js";
 import { A, FX, available, svmConnection, world } from "@solanaauth/testkit";
 
-const pricing = loadPricing(new URL("../../../config/pricing.json", import.meta.url).pathname);
+const pricing = loadPricing(fileURLToPath(new URL("../../../config/pricing.json", import.meta.url)));
 const listen = async (handler) => {
   const s = createServer(handler);
   await new Promise((r) => s.listen(0, "127.0.0.1", r));

@@ -243,6 +243,17 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
     if !vault.owned_by(&SYSTEM_PROGRAM) || vault.data_len() != 0 {
         return Err(AuthError::VaultInvariant.into());
     }
+    // A CPI may create a vault token account that did not exist at snapshot time.
+    // Validate the final authority of every vault token account, including new ATAs:
+    // a delegate installed on an empty account could otherwise drain future deposits.
+    for a in accounts.iter().skip(FIXED) {
+        if vault_token(a, vault.address())?.is_some() {
+            let d = a.try_borrow()?;
+            if d[TA_DELEGATE_TAG] != [0; 4] || d[TA_CLOSE_AUTH_TAG] != [0; 4] {
+                return Err(AuthError::TokenInvariant.into());
+            }
+        }
+    }
     // Rent-i i token account-eve të mbyllura llogaritet si SOL i vault-it.
     let mut sol_in = vault_before;
     let mut spent: [([u8; 32], u64); MAX_TRACKED] = [([0; 32], 0); MAX_TRACKED];

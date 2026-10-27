@@ -5,6 +5,7 @@
  * `CORS_ORIGINS` (me presje, ose `*`), `RATE_LIMIT_PER_MIN` (parazgjedhja 30 për IP).
  */
 import { createServer } from "node:http";
+import { RateLimiter, requestIp } from "./rate-limit.js";
 
 import { SaltError, createSaltService } from "./index.js";
 
@@ -22,19 +23,10 @@ const corsOrigins = (process.env.CORS_ORIGINS ?? "*").split(",").map((s) => s.tr
 const limit = Number(process.env.RATE_LIMIT_PER_MIN ?? 30);
 const salt = createSaltService({ masterSeed: Buffer.from(seedHex, "hex"), allowedAudiences });
 
-const hits = new Map<string, { n: number; reset: number }>();
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const h = hits.get(ip);
-  if (!h || now > h.reset) {
-    hits.set(ip, { n: 1, reset: now + 60_000 });
-    return false;
-  }
-  h.n += 1;
-  return h.n > limit;
-}
+const limiter = new RateLimiter(limit);
+const trustedProxies = (process.env.TRUSTED_PROXIES ?? "").split(",").map(s => s.trim()).filter(Boolean);
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   const origin = req.headers.origin ?? "";
   const allow = corsOrigins.includes("*") ? "*" : corsOrigins.includes(origin) ? origin : "";
   if (allow) res.setHeader("access-control-allow-origin", allow);
@@ -47,14 +39,14 @@ createServer(async (req, res) => {
   if (req.method === "OPTIONS") return res.writeHead(204).end();
   if (req.method === "GET" && req.url === "/health") return json(200, { ok: true });
   if (req.method !== "POST" || req.url !== "/salt") return json(404, { error: "not found" });
-  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0].trim() ?? req.socket.remoteAddress ?? "";
-  if (rateLimited(ip)) return json(429, { error: "shumë kërkesa" });
-  let body = "";
-  for await (const chunk of req) {
-    body += chunk;
-    if (body.length > 16_384) return json(413, { error: "kërkesë shumë e madhe" });
-  }
+  const ip = requestIp(req, trustedProxies);
+  if (!limiter.allow(ip)) return json(429, { error: "shumë kërkesa" });
   try {
+    let body = "";
+    for await (const chunk of req) {
+      body += chunk;
+      if (body.length > 16_384) return json(413, { error: "kërkesë shumë e madhe" });
+    }
     const { jwt } = JSON.parse(body);
     const r = await salt(jwt);
     json(200, { salt: r.salt });
@@ -62,6 +54,7 @@ createServer(async (req, res) => {
     if (e instanceof SaltError) return json(e.status, { error: e.message });
     json(400, { error: "kërkesë e pavlefshme" });
   }
-}).listen(Number(process.env.PORT ?? 8787), () => {
-  console.log(`salt service në portin ${process.env.PORT ?? 8787}`);
+});
+server.listen(Number(process.env.PORT ?? 8787), () => {
+  console.log(`salt service port=${(server.address() as import("node:net").AddressInfo).port}`);
 });

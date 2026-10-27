@@ -10,6 +10,7 @@ import {
   WalletAccount, ZkAccounts, addPasskeyZk, beginRecoveryAddPasskey, browserPasskey, cancelRecoveryZk, createBrowserPasskey,
   decodeJwt, decodeJwtHeader, decodeWallet, discoverBrowserPasskey, encodeZkBlock, fetchSessions, finishRecovery, genAddressSeed,
   jwkAddress, passkeyOps, paymasterFeePayer, revokeSessionZk, vaultAddress, zkIdentity, toBigEndian, PendingLogin,
+  confirmTransaction,
 } from "@solanaauth/core";
 
 const env = import.meta.env;
@@ -38,7 +39,7 @@ export async function feePayer(): Promise<FeePayer | Keypair> {
 export async function airdrop(to: PublicKey) {
   if ((await connection.getBalance(to)) >= 0.01 * LAMPORTS_PER_SOL) return;
   const sig = await connection.requestAirdrop(to, 0.05 * LAMPORTS_PER_SOL);
-  await connection.confirmTransaction(sig, "confirmed");
+  await confirmTransaction(connection, sig);
 }
 
 export interface ZkAuth {
@@ -124,7 +125,7 @@ export async function finishLogin(): Promise<State | null> {
   transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
   transaction.sign(sessionKey);
   const sig = await connection.sendRawTransaction(transaction.serialize());
-  await connection.confirmTransaction(sig, "confirmed");
+  await confirmTransaction(connection, sig);
   return {
     wallet, vault: session.vault, account: await loadWallet(wallet), session, passkey: null,
     zk: { block, identity, accounts: { sessionKey: sessionKey.publicKey, jwk, wallet }, foreign: false }, zkKey: sessionKey,
@@ -134,6 +135,13 @@ export async function finishLogin(): Promise<State | null> {
 export async function passkeyLogin(): Promise<State> {
   const { wallet, signer } = await discoverBrowserPasskey(RP_ID, async (w) => (await loadWallet(w))?.passkeys.map((p) => p.publicKey) ?? []);
   return { wallet, vault: vaultAddress(programId, wallet), account: await loadWallet(wallet), session: null, zk: null, passkey: signer, zkKey: null };
+}
+
+/** Attach an existing passkey without discarding an active OAuth session. */
+export async function attachPasskey(s: State): Promise<State> {
+  const selected = await passkeyLogin();
+  if (!selected.wallet.equals(s.wallet)) throw new Error("passkey-i i përket një portofoli tjetër");
+  return { ...s, passkey: selected.passkey };
 }
 
 export async function loadWallet(wallet: PublicKey): Promise<WalletAccount | null> {
@@ -165,14 +173,18 @@ export async function assets(vault: PublicKey): Promise<Asset[]> {
 }
 
 export const fmt = (amount: bigint, decimals: number) => {
+  if (decimals === 0) return amount.toString();
   const s = amount.toString().padStart(decimals + 1, "0");
   return `${s.slice(0, -decimals) || "0"}.${s.slice(-decimals)}`.replace(/\.?0+$/, "");
 };
 
 export function parseAmount(s: string, decimals: number): bigint {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255 || !/^\d+(?:\.\d*)?$/.test(s.trim())) throw new Error("shumë e pavlefshme");
   const [a, b = ""] = s.trim().split(".");
   if (!/^\d+$/.test(a) || !/^\d*$/.test(b) || b.length > decimals) throw new Error("shumë e pavlefshme");
-  return BigInt(a + b.padEnd(decimals, "0"));
+  const amount = BigInt(a + b.padEnd(decimals, "0"));
+  if (amount > U64_MAX) throw new Error("shuma tejkalon u64");
+  return amount;
 }
 
 function ata(owner: PublicKey, mint: PublicKey, tokenProgram: PublicKey) {
@@ -239,7 +251,7 @@ async function sendPasskeyOp(ixs: TransactionInstruction[]) {
     const tx = await auth.transaction(ixs, payer.publicKey);
     tx.sign(payer);
     const sig = await connection.sendRawTransaction(tx.serialize());
-    await connection.confirmTransaction(sig, "confirmed");
+    await confirmTransaction(connection, sig);
     return sig;
   }
   const tx = await auth.transaction(ixs, payer.publicKey);
@@ -254,7 +266,7 @@ async function sendZk(s: State, ixs: TransactionInstruction[]) {
   const tx = await auth.transaction(ixs, key.publicKey);
   tx.sign(key);
   const sig = await connection.sendRawTransaction(tx.serialize());
-  await connection.confirmTransaction(sig, "confirmed");
+  await confirmTransaction(connection, sig);
   return sig;
 }
 

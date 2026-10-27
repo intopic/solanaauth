@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
@@ -10,7 +11,7 @@ import {
 } from "../dist/index.js";
 
 const root = new URL("../../../", import.meta.url);
-const pricing = loadPricing(new URL("config/pricing.json", root).pathname);
+const pricing = loadPricing(fileURLToPath(new URL("config/pricing.json", root)));
 const ISS = "https://accounts.google.com";
 
 async function issuer() {

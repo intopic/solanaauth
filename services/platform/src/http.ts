@@ -16,7 +16,7 @@ import {
 import { Paymaster, PriceSource, SponsorError } from "./paymaster.js";
 import { Platform, PlatformError } from "./platform.js";
 import { invoice, monthRange } from "./pricing.js";
-import { App } from "./store.js";
+import { App, effectivePlan } from "./store.js";
 import { TEMPLATES } from "./templates.js";
 
 export interface HandlerDeps {
@@ -36,6 +36,7 @@ class HttpError extends Error {
 
 const publicApp = (a: App) => ({
   ...a,
+  plan: effectivePlan(a),
   apiKeys: a.apiKeys.map(({ hash: _h, ...k }) => k),
 });
 
@@ -132,7 +133,7 @@ export function createHandler(d: HandlerDeps) {
       if (sub === "usage" && req.method === "GET") {
         const month = url.searchParams.get("month") ?? new Date().toISOString().slice(0, 7);
         const [from, to] = monthRange(month);
-        return json(200, invoice(p.o.pricing, app.plan, month, p.o.store.usage(app.id, from, to)));
+        return json(200, invoice(p.o.pricing, effectivePlan(app), month, p.o.store.usage(app.id, from, to)));
       }
       if (sub === "ledger" && req.method === "GET") return json(200, { balanceMicroUsd: app.balanceMicroUsd, entries: p.o.store.ledger(app.id).slice(-200).reverse() });
       if (sub === "checkout" && req.method === "POST") {

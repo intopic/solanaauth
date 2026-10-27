@@ -58,7 +58,9 @@ test("Wallet Standard: connect, signAndSendTransaction (legacy + v0), signMessag
 
   // signMessage: verifikim SAA-1271 me sesionin on-chain.
   const message = new TextEncoder().encode("Hyr në dApp: nonce 42");
-  const [m] = await wallet.features["solana:signMessage"].signMessage({ account, message });
+  assert.equal(wallet.features["solana:signMessage"], undefined, "PDA must not advertise a plain Ed25519 signature");
+  const [m] = await wallet.features["solanaauth:session"].signMessage({ account, message });
+  assert.equal(m.signatureType, sa.SIGNATURE_TYPE);
   const info = wallet.features["solanaauth:session"].getSession();
   assert.equal(info.vault, account.address);
   const sig = { wallet: new PublicKey(info.wallet), session: new PublicKey(info.session), signature: m.signature };

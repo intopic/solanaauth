@@ -13,6 +13,7 @@ import {
   Session,
   SolanaAuth,
   deserializeSession,
+  confirmTransaction,
   serializeSession,
 } from "@solanaauth/core";
 
@@ -105,11 +106,13 @@ export class BrowserLogin {
     await this.opts.fundSessionKey?.(session.sessionKey.publicKey, this.auth.connection);
     if (this.opts.fundSessionKey) {
       // Airdrop-i mund të marrë kohë; blockhash-i rifreskohet.
-      tx.recentBlockhash = (await this.auth.connection.getLatestBlockhash()).blockhash;
+      const latest = await this.auth.connection.getLatestBlockhash();
+      tx.recentBlockhash = latest.blockhash;
+      tx.lastValidBlockHeight = latest.lastValidBlockHeight;
     }
     tx.sign(session.sessionKey);
     const sig = await this.auth.connection.sendRawTransaction(tx.serialize());
-    await this.auth.connection.confirmTransaction(sig, "confirmed");
+    await confirmTransaction(this.auth.connection, sig, tx);
     return sig;
   }
 
@@ -128,7 +131,8 @@ export class BrowserLogin {
   /** Revokon sesionin on-chain (nëse `onChain`) dhe e fshin lokalisht. */
   async logout(onChain = true): Promise<string | null> {
     const s = this.current();
+    const signature = s && onChain ? await this.auth.revoke(s) : null;
     this.storage.removeItem(this.key);
-    return s && onChain ? this.auth.revoke(s) : null;
+    return signature;
   }
 }

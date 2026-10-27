@@ -2,6 +2,7 @@
 // fee payer dhe e dërgon. Pranon vetëm një `execute` të solanaauth me një `TransferChecked` të saktë.
 import { PublicKey } from "@solana/web3.js";
 import { decodeX402Payment } from "@solanaauth/agent";
+import { validateComputeBudget } from "@solanaauth/core";
 
 const TOKEN = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 const ATA = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
@@ -48,6 +49,7 @@ export function x402Handler(o) {
   });
 
   function verify(tx) {
+    validateComputeBudget(tx.instructions, BigInt(o.maxPriorityMicroLamports ?? 1_000_000), BigInt(o.maxPriorityFeeLamports ?? 100_000));
     if (!tx.feePayer?.equals(o.feePayer.publicKey)) throw new Error("fee payer i gabuar");
     const main = tx.instructions.filter((ix) => !ix.programId.equals(COMPUTE_BUDGET));
     if (main.length !== 1 || !main[0].programId.equals(o.programId) || main[0].data[0] !== 7) throw new Error("pritet një `execute` i solanaauth");

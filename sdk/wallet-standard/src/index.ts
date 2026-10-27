@@ -5,12 +5,13 @@
  * - `solana:signAndSendTransaction`: instruksionet e dApp-it (ku vault-i është nënshkrues dhe/ose
  *   fee payer) mbështillen në `execute`; politika e sesionit vendos on-chain. Fee payer-i bëhet
  *   paguesi i klientit (paymaster, server, Kora) ose çelësi i sesionit.
- * - `solana:signMessage`: nënshkrim SAA-1271 nga sesioni (`docs/SIGN-MESSAGE.md`).
+ * - `solanaauth:session.signMessage`: nënshkrim SAA-1271 nga sesioni (`docs/SIGN-MESSAGE.md`).
  * - `solana:signTransaction` nuk ofrohet: një tx i nënshkruar nga vault-i jashtë programit s'ekziston.
  */
-import type { SolanaSignAndSendTransactionFeature, SolanaSignAndSendTransactionMethod, SolanaSignMessageFeature, SolanaSignMessageMethod } from "@solana/wallet-standard-features";
+import { Buffer } from "buffer";
+import type { SolanaSignAndSendTransactionFeature, SolanaSignAndSendTransactionMethod } from "@solana/wallet-standard-features";
 import { PublicKey, Transaction, TransactionInstruction, VersionedTransaction } from "@solana/web3.js";
-import { SIGNATURE_TYPE, Session, SolanaAuth, signMessage } from "@solanaauth/core";
+import { SIGNATURE_TYPE, Session, SessionSignature, SolanaAuth, signMessage } from "@solanaauth/core";
 import type { Wallet, WalletAccount, WalletIcon } from "@wallet-standard/base";
 import type { StandardConnectFeature, StandardConnectMethod, StandardDisconnectFeature, StandardEventsFeature, StandardEventsListeners, StandardEventsOnMethod } from "@wallet-standard/features";
 import { registerWallet } from "@wallet-standard/wallet";
@@ -20,7 +21,7 @@ const ICON = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcv
 
 class Account implements WalletAccount {
   readonly chains = SOLANA_CHAINS;
-  readonly features = ["solana:signAndSendTransaction", "solana:signMessage"] as const;
+  readonly features = ["solana:signAndSendTransaction"] as const;
   constructor(readonly vault: PublicKey) {}
   get address() {
     return this.vault.toBase58();
@@ -62,6 +63,7 @@ export type SolanaAuthSessionFeature = {
     signatureType: typeof SIGNATURE_TYPE;
     programId: string;
     getSession(): { wallet: string; session: string; vault: string; expiresAt: number } | null;
+    signMessage(...inputs: { account: WalletAccount; message: Uint8Array }[]): Promise<(SessionSignature & { signedMessage: Uint8Array })[]>;
   };
 };
 
@@ -87,17 +89,17 @@ export class SolanaAuthWallet implements Wallet {
     return this.#session ? [new Account(this.#session.vault)] : [];
   }
 
-  get features(): StandardConnectFeature & StandardDisconnectFeature & StandardEventsFeature & SolanaSignAndSendTransactionFeature & SolanaSignMessageFeature & SolanaAuthSessionFeature {
+  get features(): StandardConnectFeature & StandardDisconnectFeature & StandardEventsFeature & SolanaSignAndSendTransactionFeature & SolanaAuthSessionFeature {
     return {
       "standard:connect": { version: "1.0.0", connect: this.#connect },
       "standard:disconnect": { version: "1.0.0", disconnect: async () => this.#set(null) },
       "standard:events": { version: "1.0.0", on: this.#on },
       "solana:signAndSendTransaction": { version: "1.0.0", supportedTransactionVersions: ["legacy", 0], signAndSendTransaction: this.#signAndSend },
-      "solana:signMessage": { version: "1.0.0", signMessage: this.#signMessage },
       [SESSION_FEATURE]: {
         version: "1.0.0",
         signatureType: SIGNATURE_TYPE,
         programId: this.auth.programId.toBase58(),
+        signMessage: this.#signMessage,
         getSession: () => {
           const s = this.#session;
           return s && { wallet: s.wallet.toBase58(), session: s.session.toBase58(), vault: s.vault.toBase58(), expiresAt: s.expiresAt };
@@ -150,13 +152,13 @@ export class SolanaAuthWallet implements Wallet {
     return out;
   };
 
-  #signMessage: SolanaSignMessageMethod = async (...inputs) => {
+  #signMessage = async (...inputs: { account: WalletAccount; message: Uint8Array }[]) => {
     const s = this.#session;
     if (!s) throw new Error("s'është lidhur");
     return inputs.map((input) => {
+      if (input.account.address !== s.vault.toBase58()) throw new Error("llogari e panjohur");
       const r = signMessage(s, input.message);
-      // `signedMessage` = mesazhi i dApp-it; verifikuesi duhet `verifySessionMessage` (SAA-1271).
-      return { signedMessage: input.message, signature: r.signature, signatureType: "ed25519" as const };
+      return { ...r, signedMessage: input.message };
     });
   };
 }
