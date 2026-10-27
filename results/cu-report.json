@@ -75,5 +75,5 @@
     { "fixture": "dev-v1-pinned", "case": "verify_full: 1 byte në header", "rejected": true, "detail": "Custom(3)" },
     { "fixture": "dev-v1-pinned", "case": "verify_full: 1 byte në modulus-in RSA", "rejected": true, "detail": "Custom(3)" }
   ],
-  "meta": { "program.so sha256": "65cbb7790d1860a24ec905c329feea7825287e6371fb49a6370b2e18dda3add2", "svm": "litesvm 0.17.0 (Agave 4.x feature set)", "commit": "d13615e7a7ce2f3ca01800d1f8bd3ecb366913d8", "solana": "solana-cli 4.3.2 (src:92555e42; feat:c9ad34d2, client:Agave)" }
+  "meta": { "program.so sha256": "65cbb7790d1860a24ec905c329feea7825287e6371fb49a6370b2e18dda3add2", "svm": "litesvm 0.17.0 (Agave 4.x feature set)", "commit": "547d9d5b667e64f4b16e4966bf5a64b4f2f37cd4", "solana": "solana-cli 4.3.2 (src:92555e42; feat:c9ad34d2, client:Agave)" }
 }
