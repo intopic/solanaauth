@@ -67,7 +67,8 @@ fn sdk_vectors() {
         },
     });
     let out = serde_json::to_string_pretty(&v).unwrap() + "\n";
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/sdk-vectors.json");
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/sdk-vectors.json");
     if std::env::var("CHECK_SDK_VECTORS").is_ok() {
         let cur = std::fs::read_to_string(&path).unwrap_or_default();
         assert_eq!(cur, out, "fixtures/sdk-vectors.json s'është i përditësuar: cargo test -p bench --test sdk_vectors");

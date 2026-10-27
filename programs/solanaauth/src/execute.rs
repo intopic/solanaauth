@@ -209,7 +209,10 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
             }
             let a = accounts.get(idx).ok_or(AuthError::InvalidAccount)?;
             let is_signer = flags & 2 != 0;
-            if is_signer && !a.is_signer() && a.address() != vault.address() {
+            // Vetëm vault-i nënshkruan në instruksionet e brendshme. Nënshkruesit e transaksionit
+            // (fee payer-i, paymaster-i, çelësi i sesionit) nuk ia japin autoritetin e tyre
+            // instruksioneve që zgjedh sesioni (D25).
+            if is_signer && a.address() != vault.address() {
                 return Err(AuthError::MissingSignature.into());
             }
             ix_accounts[k].write(InstructionAccount::new(

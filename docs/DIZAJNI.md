@@ -219,6 +219,14 @@ Propozimi **SAA-1271** (si ERC-1271):
 | D22 | Proxy-i i prover-it nuk verifikon nënshkrimin e JWT-së; kontrollon `aud`, `exp`, `keyClaimName = sub` dhe `maxEpoch ≤ tani + max_session_secs` | qarku verifikon RSA-në; proxy-i mbron vetëm kapacitetin |
 | D23 | Agjentët hyjnë me loopback `127.0.0.1` (si CLI-të OAuth) dhe përdorin vetëm çelësin e sesionit | agjenti nuk sheh kurrë JWT-në e përdoruesit pas hyrjes dhe s'ka asnjë rrugë për të dalë nga politika |
 | D24 | Pa paymaster (para M5) paguesi i hyrjes është vetë çelësi i sesionit; në devnet quickstart-i bën airdrop | asnjë çelës i hostuar; paymaster-i opsional vjen në M5 |
+| D25 | Në `execute` vetëm vault-i mund të jetë nënshkrues i instruksioneve të brendshme | përndryshe çdo nënshkrues i tx-it (fee payer-i, paymaster-i, serveri i aplikacionit, Kora) do t'i jepte sesionit autoritetin e vet: një `system::transfer` nga paymaster-i brenda `execute` do ta zbrazte. Test negativ në `bench` |
+| D26 | Paymaster-i sponsorizon vetëm instruksionet e `solanaauth` (+ ComputeBudget, secp256r1); paymaster-i mund të jetë vetëm fee payer ose paguesi i rent-it në `create_wallet`/`open_session`; kostoja matet me simulim para nënshkrimit dhe ka kufi për tx | asnjë rrugë për të nxjerrë SOL nga paymaster-i përtej tarifës dhe rent-it të portofolit/sesionit; ngarkesa = kosto reale e matur |
+| D27 | Kufi i veçantë për hyrje të sponsorizuara (`perUserDailyAccounts`, parazgjedhja 3) | rent-i i një sesioni (~0.0053 SOL) kthehet te vault-i i përdoruesit kur mbyllet; pa kufi, një përdorues mund ta kthente depozitën e aplikacionit në SOL për vete |
+| D28 | Marzhi i paymaster-it ($0.0002) merret vetëm mbi tx-at e përfshira në plan; devnet s'ngarkohet; depozita s'shkon nën zero (s'ka kredi) | brief 4.3–4.4: "tx paymaster" e planit = tx pa marzh; kostoja reale gjithmonë nga depozita |
+| D29 | MAU dhe agjentët numërohen në salt-in e platformës (subjekt = sha256(iss‖sub), vetëm mainnet); plani Falas refuzon përdoruesit e rinj përtej kuotës | salt-i thirret në çdo hyrje dhe njeh `aud`-in e aplikacionit; s'ruhet asnjë identifikues i lexueshëm |
+| D30 | Faqja e portofolit: tërheqja kërkon sesion (Google/Apple); me passkey vetëm revokim, prag, passkey dhe rikuperim; kur ka passkey, tërheqjet nënshkruhen edhe me passkey | `execute` kërkon sesion (D3). Pragu ditor mbron SOL; token-at mbrohen vetëm nga limitet e sesionit, prandaj faqja kërkon passkey kur ekziston (kufizim i njohur, te SECURITY.md) |
+| D31 | Passkey-t e faqes së portofolit kanë `user.id` = adresa e portofolit | hyrja vetëm me passkey gjen portofolin pa server; çelësi publik gjendet duke verifikuar nënshkrimin kundër passkey-ve të portofolit |
+| D32 | Pas rikuperimit me identitet të ri, SDK-ja e gjen portofolin me `getProgramAccounts` (identiteti te offset 56/96) | adresa e portofolit varet nga identiteti fillestar (seksioni 4) dhe nuk ndryshon |
 
 ## 11. SDK dhe shërbimet (M4)
 
@@ -240,3 +248,15 @@ Testet: vektorët Rust↔TS (`fixtures/sdk-vectors.json`, të kontrolluar në CI
 2. Një OAuth client ID i Google (Web) me redirect `http://localhost:5173` dhe domenin e dashboard-it. Apple kërkon Apple Developer account (Services ID).
 3. Hosting për prover-in (≥ 16 GB RAM, ~3 s CPU për provë) dhe salt service-in, me `SALT_MASTER_SEED` në një secret manager me backup.
 
+## 12. Paymaster, dashboard, faturimi dhe faqja e portofolit (M5)
+
+| Pjesa | Ku | Çfarë bën |
+|---|---|---|
+| Platforma | `services/platform` | API e vetme: aplikacionet, API keys (vetëm hash), OAuth client IDs, `POST /v1/salt` dhe `/v1/prove` me matje përdorimi, `POST /v1/sponsor` (paymaster), Stripe Checkout + webhook, depozita USDC/SOL me referencë Solana Pay, fatura nga `config/pricing.json` |
+| Dashboard | `apps/dashboard` | hyrje me Google; aplikacionet, çelësat, OAuth, shabllonet e politikave, përdorimi (MAU, agjentë, prova, tx paymaster), paymaster (ON/OFF, depozitë, limite, historik), faturimi |
+| Faqja e portofolit | `apps/wallet` | hyrje me Google/Apple ose passkey; asetet, tërheqja, sesionet, passkey-t, pragu, rikuperimi në të dy drejtimet |
+| SDK | `sdk/core` | `FeePayer`: `paymasterFeePayer`, `appServerFeePayer`, `koraFeePayer`; `execute(..., { feePayer })` |
+
+Paymaster-i është OFF si parazgjedhje. Pa të, paguan përdoruesi (çelësi i sesionit), serveri i aplikacionit (`appServerFeePayer`, i njëjti protokoll si paymaster-i) ose Kora. Testi `services/platform/test/demo-paymaster.test.mjs` bën të njëjtën hyrje dhe `execute` me paymaster ON dhe OFF kundër programit të vërtetë.
+
+Çmimet janë vetëm te `config/pricing.json`. Çelësat e Stripe dhe çelësi i paymaster-it vijnë nga mjedisi; në këtë fazë çelësi i paymaster-it është vetëm devnet.
