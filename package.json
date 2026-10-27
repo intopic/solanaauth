@@ -3,6 +3,7 @@
   "private": true,
   "license": "Apache-2.0",
   "workspaces": [
+    "testing",
     "sdk/core",
     "sdk/react",
     "sdk/agent",
@@ -12,7 +13,8 @@
     "services/platform",
     "apps/dashboard",
     "apps/wallet",
-    "examples/quickstart"
+    "examples/quickstart",
+    "examples/game"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

@@ -1,0 +1,15 @@
+{
+  "name": "@solanaauth/testkit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mjedisi i përbashkët i testeve JS: programi i vërtetë solanaauth (dhe demo-t) në LiteSVM",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "index.mjs",
+  "dependencies": {
+    "@solana/kit": "8.5.0",
+    "@solana/web3.js": "1.98.4",
+    "@solanaauth/core": "0.1.0",
+    "litesvm": "1.5.0"
+  }
+}

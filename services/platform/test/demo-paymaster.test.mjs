@@ -7,7 +7,7 @@ import { Keypair, SystemProgram, Transaction } from "@solana/web3.js";
 import * as sa from "@solanaauth/core";
 
 import { MemoryStore, OwnerAuth, Paymaster, Platform, createHandler, loadPricing } from "../dist/index.js";
-import { A, FX, available, svmConnection, world } from "./world.mjs";
+import { A, FX, available, svmConnection, world } from "@solanaauth/testkit";
 
 const pricing = loadPricing(new URL("../../../config/pricing.json", import.meta.url).pathname);
 const listen = async (handler) => {

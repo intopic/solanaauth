@@ -6,15 +6,20 @@ import { LiteSVM, Clock, FailedTransactionMetadata } from "litesvm";
 import { address, getTransactionDecoder } from "@solana/kit";
 import * as sa from "@solanaauth/core";
 
-const root = new URL("../../../", import.meta.url);
+const root = new URL("../", import.meta.url);
 export const SO = process.env.SOLANAAUTH_SO ?? new URL("programs/solanaauth/target/deploy/solanaauth.so", root).pathname;
 export const FX = JSON.parse(readFileSync(new URL("fixtures/proofs/google-mainnet-v1.json", root)));
 export const available = existsSync(SO);
 if (!available && process.env.CI) throw new Error(`mungon ${SO}`);
 export const A = (pk) => address(pk.toBase58());
 
-export function world() {
+export const GAME_SO = process.env.DEMO_GAME_SO ?? new URL("programs/demo-game/target/deploy/demo_game.so", root).pathname;
+export const GAME_PROGRAM_ID = new PublicKey(new Uint8Array(32).fill(7));
+
+/** LiteSVM me solanaauth (program ID = [9; 32]), config (timelock 0) dhe JWK-në e Google të fixture-it. */
+export function world({ game = false } = {}) {
   const svm = new LiteSVM();
+  if (game) svm.addProgramFromFile(A(GAME_PROGRAM_ID), GAME_SO);
   const programId = new PublicKey(new Uint8Array(32).fill(9));
   svm.addProgramFromFile(A(programId), SO);
   const admin = Keypair.generate();
@@ -82,4 +87,25 @@ export function svmConnection(svm) {
     },
     async confirmTransaction() { return { value: { err: null } }; },
   };
+}
+
+/**
+ * Hyrja me provën e fixture-it përmes SDK-së (`buildLogin`): krijon portofolin dhe sesionin.
+ * `feePayer`: `FeePayer` (paymaster, server) ose `Keypair` që paguan; çelësi i sesionit s'ka SOL.
+ */
+export async function fixtureLogin(w, { policy, feePayer, connection = svmConnection(w.svm) }) {
+  const client = new sa.SolanaAuth({ connection, programId: w.programId, proverUrl: "", saltUrl: "", feePayer: feePayer instanceof Keypair ? undefined : feePayer });
+  const eph = Keypair.fromSeed(sa.fromHex(FX.ephemeral_private_key_hex));
+  const pending = { ephemeralSecretKey: eph.secretKey, maxEpoch: FX.max_epoch, randomness: "1", nonce: "n" };
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const jwt = [b64({ alg: "RS256", kid: FX.jwk.kid }), b64({ iss: w.iss, aud: "a", sub: "s" }), "x"].join(".");
+  const payerKey = feePayer instanceof Keypair ? feePayer.publicKey : undefined;
+  const { transaction, session } = await client.buildLogin(jwt, pending, sa.normalizeInputs(FX.inputs), policy, payerKey);
+  if (feePayer instanceof Keypair) {
+    transaction.partialSign(feePayer);
+    await connection.sendRawTransaction(transaction.serialize());
+  } else {
+    await feePayer.submit(transaction);
+  }
+  return { client, session, connection };
 }
