@@ -145,10 +145,15 @@ Address Lookup Tables. Numrat e saktë dalin në `results/`.
 - Formati WebAuthn: mesazhi i nënshkruar nga shfletuesi është
   `authenticatorData || sha256(clientDataJSON)`; programi kontrollon që `challenge` në
   `clientDataJSON` = mesazhi i mësipërm (base64url).
-- **Veprimet mbi prag** (kërkojnë passkey përveç sesionit/zk): `execute` që zbret SOL/token mbi
-  `threshold_lamports` (ose ekuivalentin e konfiguruar për mint), `add_authority`,
-  `remove_authority`. Nëse portofoli nuk ka passkey, pragu nuk vlen (përdoruesi paralajmërohet
-  nga SDK-ja).
+- **Veprimet mbi prag** (kërkojnë passkey përveç sesionit/zk): `execute` kur daljet e SOL brenda
+  24 orëve kalojnë `threshold_lamports` (D14), shtimi/heqja e passkey-ve, ndryshimi i pragut.
+  Nëse portofoli nuk ka passkey, pragu nuk vlen (përdoruesi paralajmërohet nga SDK-ja).
+- **Implementimi (M3):** precompile-i duhet të jetë instruksioni menjëherë para instruksionit
+  tonë, me 1 nënshkrim dhe me të gjitha të dhënat brenda vetes. `action_hash =
+  sha256(op || bytes para bllokut passkey || bytes pas tij || adresat e llogarive pa sysvar-in)`;
+  kështu nënshkrimi lidh çdo byte të instruksionit dhe çdo llogari. Instruksionet: `add_passkey`
+  (11), `remove_passkey` (12), `set_threshold` (13), `revoke_session` mode 2, `execute` me flag-un 1.
+  Faktori zk shton passkey direkt vetëm kur portofoli s'ka asnjë passkey.
 
 ## 7. Rikuperimi (M3)
 
@@ -157,6 +162,11 @@ Address Lookup Tables. Numrat e saktë dalin në `results/`.
 | Humbi passkey-n | provë zk → `begin_recovery(add passkey P')` | 48 orë (`config.recovery_delay`) | çdo passkey ekzistuese |
 | Humbi Google / salt-in | passkey → `begin_recovery(add zk identity Z')` | 48 orë | çdo autoritet zk ekzistues |
 | Pas timelock-ut | `finish_recovery` (kushdo) | — | — |
+
+Implementimi (M3): `begin_recovery` (14) me `kind` 1 (zk → shto/zëvendëso passkey në slot) ose 2
+(passkey + provë e identitetit të ri → shto/zëvendëso identitet zk në slot), `cancel_recovery` (15)
+me çdo autoritet ekzistues (zk ose passkey), `finish_recovery` (16). Vetëm një rikuperim në pritje
+njëherësh; programi log-on `solanaauth: RecoveryStarted`.
 
 Gjatë një rikuperimi në pritje, sesionet ekzistuese mbeten aktive (përdoruesi mund t'i revokojë).
 Njoftimi: SDK-ja/dashboard-i dëgjon event-in `RecoveryStarted` (log) dhe dërgon email.
@@ -198,3 +208,7 @@ Propozimi **SAA-1271** (si ERC-1271):
 | D11 | Rent-i i një token account-i të vault-it që mbyllet llogaritet si SOL i vault-it | mbyllja me destinacion tjetër do të nxirrte lamports pa limit |
 | D12 | `Wallet` dhe `Session` nuk lejohen fare si llogari të instruksioneve të brendshme; maks. 24 llogari për instruksion, 8 token account-e të matura | thjeshtësi dhe kufij të qartë për CU/stack |
 | D13 | `execute` nuk verifikon PDA-në e `Wallet`/`Session` me sha256: mjafton pronari (programi) + diskriminuesi + lidhja `session.wallet`/`session.session_key` | vetëm programi krijon këto llogari dhe vetëm në PDA-të e sakta; kursen CU |
+| D14 | Pragu është ditor (24 orë, kumulativ për SOL), jo për transaksion | një faktor zk i vjedhur s'mund ta zbrazë portofolin me shumë transaksione nën prag; token-at mbeten nën limitet e sesionit |
+| D15 | Faktori zk shton passkey direkt vetëm kur s'ka asnjë; përndryshe vetëm me rikuperim 48h | Google i vjedhur s'mund të shtojë passkey-n e sulmuesit pa dijeninë e pronarit |
+| D16 | `rpIdHash` i `authenticatorData` nuk kontrollohet on-chain | passkey-t janë të lidhur me origjinën e tyre; çelësi publik i regjistruar në portofol e identifikon. SDK-ja regjistron vetëm passkey të krijuar në domenin e dashboard-it |
+| D17 | `begin_recovery` kind 2 (provë + passkey) është ~1,200 bytes | afër limitit 1,232; SDK-ja përdor `clientDataJSON` minimal dhe, nëse duhet, Address Lookup Table për config/jwk |

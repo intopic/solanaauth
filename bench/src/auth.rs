@@ -21,6 +21,10 @@ use crate::Case;
 pub const SYSTEM: Address = Address::from_str_const("11111111111111111111111111111111");
 pub const LOADER_UPGRADEABLE: Address =
     Address::from_str_const("BPFLoaderUpgradeab1e11111111111111111111111");
+pub const INSTRUCTIONS_SYSVAR: Address =
+    Address::from_str_const("Sysvar1nstructions1111111111111111111111111");
+pub const SECP256R1: Address =
+    Address::from_str_const("Secp256r1SigVerify1111111111111111111111111");
 pub const TOKEN: Address = Address::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 pub fn default_so_path() -> PathBuf {
@@ -415,18 +419,18 @@ impl Env {
         )
     }
 
-    /// `execute`: `inner` janë instruksione normale; llogaritë e tyre shtohen pas 4 të parave
-    /// dhe kodohen me indekse.
-    pub fn ix_execute(
+    /// Llogaritë dhe të dhënat e `execute` (pa op dhe flags): `inner` janë instruksione normale;
+    /// llogaritë e tyre shtohen pas 4 të parave dhe kodohen me indekse.
+    pub fn execute_parts(
         &self,
         session_key: &Address,
         wallet: &Address,
         inner: &[Instruction],
-    ) -> Instruction {
+    ) -> (Vec<AccountMeta>, Vec<u8>) {
         let vault = self.vault(wallet);
         let mut metas = vec![
             AccountMeta::new_readonly(*session_key, true),
-            AccountMeta::new_readonly(*wallet, false),
+            AccountMeta::new(*wallet, false),
             AccountMeta::new(self.session(wallet, session_key), false),
             AccountMeta::new(vault, false),
         ];
@@ -444,7 +448,7 @@ impl Env {
             });
             (metas.len() - 1) as u8
         };
-        let mut d = vec![7, inner.len() as u8];
+        let mut d = vec![inner.len() as u8];
         for ix in inner {
             let p = index_of(&ix.program_id, false, &mut metas);
             d.push(p);
@@ -457,7 +461,225 @@ impl Env {
             d.extend_from_slice(&(ix.data.len() as u16).to_le_bytes());
             d.extend_from_slice(&ix.data);
         }
+        (metas, d)
+    }
+
+    pub fn ix_execute(
+        &self,
+        session_key: &Address,
+        wallet: &Address,
+        inner: &[Instruction],
+    ) -> Instruction {
+        let (metas, rest) = self.execute_parts(session_key, wallet, inner);
+        let mut d = vec![7, 0];
+        d.extend_from_slice(&rest);
         self.ix(d, metas)
+    }
+
+    /// `execute` i miratuar me passkey (llogaria e fundit = sysvar-i Instructions).
+    pub fn ix_execute_passkey(
+        &self,
+        pk: &PasskeyKey,
+        session_key: &Address,
+        wallet: &Address,
+        inner: &[Instruction],
+    ) -> Vec<Instruction> {
+        let (mut metas, rest) = self.execute_parts(session_key, wallet, inner);
+        metas.push(AccountMeta::new_readonly(INSTRUCTIONS_SYSVAR, false));
+        self.passkey_ix(pk, wallet, 7, &[1], &rest, metas)
+    }
+
+    /// Ndërton `[precompile secp256r1, instruksioni]` me bllokun passkey midis `prefix` dhe
+    /// `payload`. Sysvar-i Instructions duhet të jetë te `accounts`; nuk hyn në hash.
+    pub fn passkey_ix(
+        &self,
+        pk: &PasskeyKey,
+        wallet: &Address,
+        op: u8,
+        prefix: &[u8],
+        payload: &[u8],
+        accounts: Vec<AccountMeta>,
+    ) -> Vec<Instruction> {
+        let mut parts: Vec<&[u8]> = vec![std::slice::from_ref(&op), prefix, payload];
+        for m in accounts.iter().filter(|m| m.pubkey != INSTRUCTIONS_SYSVAR) {
+            parts.push(m.pubkey.as_ref());
+        }
+        let action = sha256(&parts);
+        let nonce = self.wallet_nonce(wallet);
+        let challenge = sha256(&[
+            b"solanaauth:passkey:v1",
+            wallet.as_ref(),
+            &nonce.to_le_bytes(),
+            &action,
+        ]);
+        let (pre, client_data) = pk.sign(&challenge);
+        let mut d = vec![op];
+        d.extend_from_slice(prefix);
+        d.extend_from_slice(&(client_data.len() as u16).to_le_bytes());
+        d.extend_from_slice(&client_data);
+        d.extend_from_slice(payload);
+        vec![pre, self.ix(d, accounts)]
+    }
+
+    pub fn wallet_nonce(&self, wallet: &Address) -> u64 {
+        let d = self.account(wallet).unwrap().data;
+        u64::from_le_bytes(d[48..56].try_into().unwrap())
+    }
+
+    pub fn ix_add_passkey_zk(
+        &self,
+        zk: &[u8],
+        session_key: &Address,
+        jwk: &Address,
+        wallet: &Address,
+        slot: u8,
+        pubkey: &[u8; 33],
+    ) -> Instruction {
+        let mut d = vec![11, 0];
+        d.extend_from_slice(zk);
+        d.push(slot);
+        d.extend_from_slice(pubkey);
+        self.ix(
+            d,
+            vec![
+                AccountMeta::new_readonly(*session_key, true),
+                AccountMeta::new_readonly(self.config(), false),
+                AccountMeta::new_readonly(*jwk, false),
+                AccountMeta::new(*wallet, false),
+            ],
+        )
+    }
+
+    fn sysvar_wallet(wallet: &Address) -> Vec<AccountMeta> {
+        vec![
+            AccountMeta::new_readonly(INSTRUCTIONS_SYSVAR, false),
+            AccountMeta::new(*wallet, false),
+        ]
+    }
+
+    pub fn ix_add_passkey_pk(
+        &self,
+        pk: &PasskeyKey,
+        wallet: &Address,
+        slot: u8,
+        pubkey: &[u8; 33],
+    ) -> Vec<Instruction> {
+        let mut payload = vec![slot];
+        payload.extend_from_slice(pubkey);
+        self.passkey_ix(pk, wallet, 11, &[1], &payload, Self::sysvar_wallet(wallet))
+    }
+
+    pub fn ix_remove_passkey(
+        &self,
+        pk: &PasskeyKey,
+        wallet: &Address,
+        slot: u8,
+    ) -> Vec<Instruction> {
+        self.passkey_ix(pk, wallet, 12, &[], &[slot], Self::sysvar_wallet(wallet))
+    }
+
+    pub fn ix_set_threshold(
+        &self,
+        pk: &PasskeyKey,
+        wallet: &Address,
+        lamports: u64,
+    ) -> Vec<Instruction> {
+        self.passkey_ix(
+            pk,
+            wallet,
+            13,
+            &[],
+            &lamports.to_le_bytes(),
+            Self::sysvar_wallet(wallet),
+        )
+    }
+
+    fn zk_metas(&self, session_key: &Address, jwk: &Address, wallet: &Address) -> Vec<AccountMeta> {
+        vec![
+            AccountMeta::new_readonly(*session_key, true),
+            AccountMeta::new_readonly(self.config(), false),
+            AccountMeta::new_readonly(*jwk, false),
+            AccountMeta::new(*wallet, false),
+        ]
+    }
+
+    pub fn ix_recovery_add_passkey(
+        &self,
+        zk: &[u8],
+        session_key: &Address,
+        jwk: &Address,
+        wallet: &Address,
+        slot: u8,
+        pubkey: &[u8; 33],
+    ) -> Instruction {
+        let mut d = vec![14, 1];
+        d.extend_from_slice(zk);
+        d.push(slot);
+        d.extend_from_slice(pubkey);
+        self.ix(d, self.zk_metas(session_key, jwk, wallet))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn ix_recovery_add_zk(
+        &self,
+        pk: &PasskeyKey,
+        new_zk: &[u8],
+        session_key: &Address,
+        jwk: &Address,
+        wallet: &Address,
+        slot: u8,
+    ) -> Vec<Instruction> {
+        let mut payload = new_zk.to_vec();
+        payload.push(slot);
+        let mut metas = self.zk_metas(session_key, jwk, wallet);
+        metas.push(AccountMeta::new_readonly(INSTRUCTIONS_SYSVAR, false));
+        self.passkey_ix(pk, wallet, 14, &[2], &payload, metas)
+    }
+
+    pub fn ix_cancel_recovery_zk(
+        &self,
+        zk: &[u8],
+        session_key: &Address,
+        jwk: &Address,
+        wallet: &Address,
+    ) -> Instruction {
+        let mut d = vec![15, 0];
+        d.extend_from_slice(zk);
+        self.ix(d, self.zk_metas(session_key, jwk, wallet))
+    }
+
+    pub fn ix_cancel_recovery_pk(&self, pk: &PasskeyKey, wallet: &Address) -> Vec<Instruction> {
+        self.passkey_ix(pk, wallet, 15, &[1], &[], Self::sysvar_wallet(wallet))
+    }
+
+    pub fn ix_finish_recovery(&self, wallet: &Address) -> Instruction {
+        self.ix(
+            vec![16],
+            vec![
+                AccountMeta::new_readonly(self.config(), false),
+                AccountMeta::new(*wallet, false),
+            ],
+        )
+    }
+
+    pub fn ix_revoke_passkey(
+        &self,
+        pk: &PasskeyKey,
+        wallet: &Address,
+        session: &Address,
+    ) -> Vec<Instruction> {
+        self.passkey_ix(
+            pk,
+            wallet,
+            8,
+            &[2],
+            &[],
+            vec![
+                AccountMeta::new_readonly(INSTRUCTIONS_SYSVAR, false),
+                AccountMeta::new(*wallet, false),
+                AccountMeta::new(*session, false),
+            ],
+        )
     }
 
     pub fn ix_revoke_self(&self, session_key: &Address, wallet: &Address) -> Instruction {
@@ -602,5 +824,80 @@ pub fn token_approve(
             AccountMeta::new_readonly(*owner, true),
         ],
         data: d,
+    }
+}
+
+/// Një passkey testi (P-256) që nënshkruan si një shfletues WebAuthn.
+pub struct PasskeyKey {
+    sk: p256::ecdsa::SigningKey,
+}
+
+impl PasskeyKey {
+    pub fn from_seed(seed: u8) -> Self {
+        let mut b = [0u8; 32];
+        b[31] = seed;
+        b[0] = 1;
+        PasskeyKey {
+            sk: p256::ecdsa::SigningKey::from_bytes(&b.into()).unwrap(),
+        }
+    }
+
+    pub fn pubkey(&self) -> [u8; 33] {
+        self.sk
+            .verifying_key()
+            .to_encoded_point(true)
+            .as_bytes()
+            .try_into()
+            .unwrap()
+    }
+
+    pub fn client_data(challenge: &[u8; 32]) -> Vec<u8> {
+        use base64ct::Encoding;
+        let ch = base64ct::Base64UrlUnpadded::encode_string(challenge);
+        format!(
+            "{{\"type\":\"webauthn.get\",\"challenge\":\"{ch}\",\"origin\":\"https://solanaauth.dev\",\"crossOrigin\":false}}"
+        )
+        .into_bytes()
+    }
+
+    /// Nënshkruan `authenticatorData || sha256(clientDataJSON)`; kthen instruksionin e
+    /// precompile-it dhe `clientDataJSON`.
+    pub fn sign(&self, challenge: &[u8; 32]) -> (Instruction, Vec<u8>) {
+        let client_data = Self::client_data(challenge);
+        self.sign_client_data(client_data)
+    }
+
+    pub fn sign_client_data(&self, client_data: Vec<u8>) -> (Instruction, Vec<u8>) {
+        use p256::ecdsa::signature::Signer as _;
+        let mut msg = sha256(&[b"solanaauth.dev"]).to_vec();
+        msg.push(0x05); // UP | UV
+        msg.extend_from_slice(&1u32.to_be_bytes());
+        msg.extend_from_slice(&sha256(&[&client_data]));
+        let sig: p256::ecdsa::Signature = self.sk.sign(&msg);
+        let sig = sig.normalize_s().unwrap_or(sig);
+        let (pk_off, sig_off, msg_off) = (16u16, 16u16 + 33, 16u16 + 33 + 64);
+        let mut d = vec![1u8, 0];
+        for v in [
+            sig_off,
+            u16::MAX,
+            pk_off,
+            u16::MAX,
+            msg_off,
+            msg.len() as u16,
+            u16::MAX,
+        ] {
+            d.extend_from_slice(&v.to_le_bytes());
+        }
+        d.extend_from_slice(&self.pubkey());
+        d.extend_from_slice(&sig.to_bytes());
+        d.extend_from_slice(&msg);
+        (
+            Instruction {
+                program_id: SECP256R1,
+                accounts: vec![],
+                data: d,
+            },
+            client_data,
+        )
     }
 }

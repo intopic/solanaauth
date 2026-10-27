@@ -36,7 +36,7 @@ fn create_pda(
     )
 }
 
-fn load_config<'a>(
+pub(crate) fn load_config<'a>(
     view: &'a AccountView,
     program_id: &Address,
 ) -> Result<pinocchio::account::Ref<'a, [u8]>> {
@@ -300,7 +300,7 @@ pub fn revoke_jwk(program_id: &Address, accounts: &[AccountView], data: &[u8]) -
 }
 
 /// Verifikon provën me config-un dhe JWK-në e dhënë.
-fn verify_zk(
+pub(crate) fn verify_zk(
     zkb: &ZkBlock<'_>,
     session_key: &AccountView,
     config: &AccountView,
@@ -496,6 +496,7 @@ fn check_session_of(
 /// - mode 0 (vetë sesioni): `[session_key (s), wallet, session (w)]`.
 /// - mode 1 (provë zk e re): `[session_key_i_ri (s), wallet, session (w), config, jwk]`, data
 ///   `zk_block` pas mode-it.
+/// - mode 2 (passkey): `[instructions_sysvar, wallet (w), session (w)]`, data `passkey_block`.
 pub fn revoke_session(
     program_id: &Address,
     accounts: &[AccountView],
@@ -524,6 +525,21 @@ pub fn revoke_session(
             };
             let v = verify_zk(&zkb, signer, config, jwk, now()?, program_id)?;
             require_wallet_identity(wallet_view, &v.identity, program_id)?;
+        }
+        2 => {
+            // Passkey: llogaria e parë është sysvar-i Instructions.
+            let client_data = crate::passkey::read_block(&mut r)?;
+            r.finish()?;
+            crate::authority::authorize_passkey(
+                crate::OP_REVOKE_SESSION,
+                &[2],
+                client_data,
+                &[],
+                signer,
+                wallet_view,
+                &accounts[1..3],
+                program_id,
+            )?;
         }
         _ => return Err(AuthError::InvalidInstruction.into()),
     }

@@ -98,14 +98,16 @@ jobs:
         run: |
           export SOLANA_VERSION="$(cat artifact/solana-version.txt)"
           cargo test -p bench --test cu_report -- --nocapture
-      - name: solanaauth (M2) — skenari, testet negative, CU
+      - name: solanaauth (M2, M3) — skenari, testet negative, CU
         env:
           SOLANAAUTH_SO: ${{ github.workspace }}/artifact/programs/solanaauth/target/deploy/solanaauth.so
-        run: cargo test -p bench --test solanaauth -- --nocapture
+        run: |
+          cargo test -p bench --test solanaauth -- --nocapture
+          cargo test -p bench --test solanaauth_m3 -- --nocapture
       - name: Update README results table
         run: python3 scripts/update_readme.py
       - name: Job summary
-        run: cat results/cu-report.md results/solanaauth-cu.md >> "$GITHUB_STEP_SUMMARY"
+        run: cat results/cu-report.md results/solanaauth-cu.md results/solanaauth-m3-cu.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: cu-report

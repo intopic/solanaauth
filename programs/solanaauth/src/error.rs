@@ -37,6 +37,13 @@ pub enum AuthError {
     TooManyEntries = 38,
     SessionStillActive = 39,
     InvalidPolicy = 40,
+    // Passkey, rikuperimi, pragu (M3)
+    PasskeyRequired = 41,
+    InvalidPasskeySignature = 42,
+    RecoveryPending = 43,
+    NoRecovery = 44,
+    AboveThreshold = 45,
+    SlotOccupied = 46,
 }
 
 impl From<AuthError> for ProgramError {
