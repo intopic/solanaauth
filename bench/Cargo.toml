@@ -7,4 +7,25 @@ publish = false
 description = "Matjet e compute units (CU) për programin zklogin-verifier"
 
 [dependencies]
-# Detyra 6: shto mollusk-svm ose litesvm për të ekzekutuar programin .so
+reference = { path = "../reference" }
+zklogin-verifier = { path = "../programs/zklogin-verifier", features = ["no-entrypoint"] }
+sui-sdk-types = { version = "=0.4.0", features = ["serde"] }
+num-bigint = "0.4"
+serde_json = "1"
+base64ct = { version = "1.8", features = ["alloc"] }
+sha2 = "0.10"
+# Poseidon me deri në 16 input-e (i njëjti kod që sui-crypto ka vendosur brenda),
+# vetëm për të para-llogaritur hash-in e modulus-it 8192-bit të qarkut v2 off-chain.
+poseidon-ark = { git = "https://github.com/arnaucube/poseidon-ark", rev = "6d2487aa1308d9d3860a2b724c485d73095c1c68" }
+ark-bn254-04 = { package = "ark-bn254", version = "0.4" }
+ark-ff-04 = { package = "ark-ff", version = "0.4" }
+
+# SVM lokal për matjet e CU (Agave 4.x feature set).
+litesvm = "0.17.0"
+solana-address = "2.7"
+solana-instruction = "3.5"
+solana-keypair = "3.1"
+solana-message = "4.2"
+solana-signer = "3"
+solana-transaction = "4.1"
+solana-compute-budget-interface = "3"

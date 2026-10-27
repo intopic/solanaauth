@@ -1,0 +1,52 @@
+{
+  "name": "dev-v1-pinned",
+  "description": "Prov\u00eb nga prover-dev (qarku v1) mbi nj\u00eb JWT testi (oauth.sui.io), verifying key TEST i ceremonis\u00eb. Burimi: sui-crypto tests.rs::pinned_circuit_proof_material.",
+  "source": "https://github.com/MystenLabs/sui-rust-sdk/blob/main/crates/sui-crypto/src/zklogin/tests.rs",
+  "circuit": "v1",
+  "vk": "zkLogin-test.vkey.json",
+  "max_epoch": 10,
+  "ephemeral_private_key_hex": "9bf49a6a0755f953811fce125f2683d50429c3bb49e074147e0089a52eae155f",
+  "inputs": {
+    "proof_points": {
+      "a": [
+        "3010136044534492475575413496484577590932720513683681989179363462925612714982",
+        "5652552440722407852175866026012563042753395701135168680885840271325003476209",
+        "1"
+      ],
+      "b": [
+        [
+          "4134651808856881772397689190468686413285935393238712522589459332601848471034",
+          "20925849764837854473271908435319609501643424506601952398791677633465938999818"
+        ],
+        [
+          "16706593113195287380129955552431425955520047611810267551522210853347280177225",
+          "8975261226848675342214968602342036744422056685641356205140655491003281432470"
+        ],
+        [
+          "1",
+          "0"
+        ]
+      ],
+      "c": [
+        "14516934896859103165306714687867025901326990259356520077875194067697843674675",
+        "12419034695817580775970400081639888434145575090674091981609146109263143679873",
+        "1"
+      ]
+    },
+    "iss_base64_details": {
+      "value": "wiaXNzIjoiaHR0cHM6Ly9vYXV0aC5zdWkuaW8iLC",
+      "index_mod_4": 2
+    },
+    "header_base64": "eyJraWQiOiJzdWkta2V5LWlkIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ",
+    "address_seed": "1930628255822123795956154519923524356793387287437090556144422698180443693114"
+  },
+  "jwk": {
+    "iss": "https://oauth.sui.io",
+    "kid": "sui-key-id",
+    "kty": "RSA",
+    "e": "AQAB",
+    "alg": "RS256",
+    "n": "wdar6dBP7b88u6o190uXBK4yPS76OxFjiHDPwOyJwJiiAE3YRq8y_pfyQVua9nEasgrPfEBzVoC5QCld8NAC88uvbNKyoLZ6w5KlFjp88q2Sfy7nAzh3I-AnjsL6zl43NZrKep4_Nmb5nJeafcEi6B5MsYYDWW1Nn26O7ob9IWRNWcaTKhOhqDzbiN_66azN-NgaP_uHjlu1xuMV0kRt-luLSTXJS3S2n8PVNCxr3Gr2oViUpP8kSa-0i5vsg3gNtSfBY97AbChwOnyazj_PoaVD6zbEC4L5gvRZJA6vyoAWF_ZumvkwC3fxcFIBnSKMlGzS_Z-bUyQDCQy_BG9AOw"
+  },
+  "expected_all_inputs_hash": "10694871766605632598609552840913903724536924605230723954224229765332817156326"
+}

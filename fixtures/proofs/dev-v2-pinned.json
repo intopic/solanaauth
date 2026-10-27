@@ -1,0 +1,52 @@
+{
+  "name": "dev-v2-pinned",
+  "description": "Prov\u00eb nga prover-dev-v2 (qarku v2) mbi nj\u00eb JWT nga jwt-tester.mystenlabs.com me \u00e7el\u00ebs RSA 8192-bit; verifying key dev v2 (zklogin-circuits v2-main). Burimi: sui-crypto tests.rs::pinned_circuit_proof_material.",
+  "source": "https://github.com/MystenLabs/sui-rust-sdk/blob/main/crates/sui-crypto/src/zklogin/tests.rs",
+  "circuit": "v2",
+  "vk": "zkLogin-dev-v2.vkey.json",
+  "max_epoch": 10,
+  "ephemeral_private_key_hex": "9bf49a6a0755f953811fce125f2683d50429c3bb49e074147e0089a52eae155f",
+  "inputs": {
+    "proof_points": {
+      "a": [
+        "10290383706848897825088985381697541801790334043318488983431378625753497718833",
+        "17591517929249273401895310772015184603780222740894596527224318218206984537104",
+        "1"
+      ],
+      "b": [
+        [
+          "3918033264923917639046061736301179481793021691718139448529347745111416321846",
+          "18123684393181543832037347354416686302931880789657446564169805732802329293676"
+        ],
+        [
+          "5501473627788010270179873817591115039637415124881199561215844494127224527091",
+          "5357636725999458520558358539710311237463411851594252917784356338840007452395"
+        ],
+        [
+          "1",
+          "0"
+        ]
+      ],
+      "c": [
+        "14357495699847490388821026099380711662414404327434223254697278410014042621999",
+        "18065473806655831852488138949447369308006710206520416428472279919490765303978",
+        "1"
+      ]
+    },
+    "iss_base64_details": {
+      "value": "wiaXNzIjoiaHR0cHM6Ly9qd3QtdGVzdGVyLm15c3RlbmxhYnMuY29tIiw",
+      "index_mod_4": 2
+    },
+    "header_base64": "eyJraWQiOiJzdWkta2V5LWlkLTgxOTIiLCJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9",
+    "address_seed": "1930628255822123795956154519923524356793387287437090556144422698180443693114"
+  },
+  "jwk": {
+    "iss": "https://jwt-tester.mystenlabs.com",
+    "kid": "sui-key-id-8192",
+    "kty": "RSA",
+    "e": "AQAB",
+    "alg": "RS256",
+    "n": "lViYJOuLB6EZenCimgyWrwOH_QBEkCZxSIEfcQgP5MrZkRlohbrTAN1YpXGRaqugp9A4mRzCmi9ddXscpRBSsLefdPJJLG8lQZ2qrw6X2-6HD5kDFd6-K7JZS-_GOEfr5xGEDm8_MS_SorbmneKspL0n4MPYWH8qke4OBFCwL6WzGBU9rqDuvhYmafmkvVvOtHIqekBxNrCud7Spv43BHdiBM0V-jUquuNM3oK97i_GVLjGfwrGRpR3tK4nva_ryiHh9Ajs68If7-ZhIoLJ05lRsHJJpqsloiEqlCZwhge9zEMnNkoaIzdQr-xLy0GPnr5W0gikjlSGYiInfx9ITADwK3W33xdOB7npM7lqJY73Njbuw8hBQicU8t0M0gvvWfmh1KDeA5IqffZgue-ka9Jj1nrYmZtd0JimQpPDUiGbLv69gQJZcLVQWf9z6mVC4gNm8VU2OafssnolrvNndC3wIm8AgqzVzn_DIOcMQdhIe8jTF3hu1_6R4Id3KoA5Hb3uI2H86-8RjhSG2wKb3zi44yKSmxEDhzl7i450PQX64JK4ftv5jb9vSw5unpikmVvGlGsuvrqWFuWKBcrcXLgyar8pGvRO8fR9ifDHSj-D2fBiLnhK0-iqsJeU8XnfJhUvKxSjXejwsoQeLqlgq9-PgCDP3dE61fkqGpJ1UZjZ44Q9Vh4YLCPAO6oX8btXSkwreuP5m0UtWgFsc-ynWbt6NYS7JlsMtJNWybM4_auqRdil_cPMwFsUgjocztGLeG304YH-GehmyBJyGKuDIiXL9RfLoZ35jKawrWJb4UqckKWV5kOKeXsXdKtMw96ABFumcnhrzxAsqwshS5a2lT8P7Cdd9g3T1JXI7JM1AnJU9_gPXmJoc3yEFNf-JxEf00URoy2xUusyyxYdTswLJp3NQP4VjrAGwnsp7gHKC-V-mJ21FpQCHsV0JQ-1x-E3du9hkpsjTtGkffetEsV8k9enbkudox7WIlsnPcA8y7aY4lnaBqLLSzaj2GOf4KTN4cRpcPzOmSvgcVVYYQXDjRw45X86P1WJG8UDl6Wkl044tAdQRuIxW8QVzBFWWxeXcoagOBKn1_DV0RKUX9Ud4LLauy81rUNfoAcnolz9nippTBEZA_4OOBvXhdngCYaoZyjAkmYdPhKIkghGhKoVVKiEJ1Ua6nUr3zB9WFlTO9lODeV9h0tgKGtKGu3UBeaRCQSMv9gZK-eGIpcqjsqK_rEf4htdDZUBzfOJ0VtCiFYUUBPiuJNuIf9xQGVDE7qZufK1irvGug8jvWSWzB4pGLP75PnPH7B9axnXrxssaIR90Y3Vr9ih_ptzcfNrwD_wiGHUTy698FHu2fXp51HbSEQ"
+  },
+  "expected_all_inputs_hash": "578543552377868609337700892750585372402246557338687807093764998910511040182"
+}

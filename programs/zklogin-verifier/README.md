@@ -1,9 +1,20 @@
 # zklogin-verifier (programi Solana)
 
-Bosh me qëllim. Detyra 4 te [`docs/HAPI-1-BRIEF.md`](../../docs/HAPI-1-BRIEF.md):
+Program native (pinocchio, pa Anchor) pa llogari dhe pa gjendje, vetëm për matje.
 
-- `verify_proof(proof, public_input)` — vetëm Groth16 me `groth16-solana`.
-- `verify_full(proof, inputs...)` — rillogarit `all_inputs_hash` me `sol_poseidon`, pastaj verifikon.
+| op | Instruksioni | Çfarë bën |
+|---|---|---|
+| 0 | `verify_proof(vk, proof, public_input)` | vetëm Groth16 me `groth16-solana` |
+| 1 | `verify_full(vk, proof, inputs…)` | rillogarit `all_inputs_hash` me `sol_poseidon`, pastaj Groth16 |
+| 2 | `compute_inputs_hash(vk, proof, inputs…)` | vetëm Poseidon; e shkruan hash-in me `sol_log_data` (për krahasim bit për bit) |
 
-Sapo të shtohet `Cargo.toml` këtu, CI fillon automatikisht ta ndërtojë me `cargo build-sbf`.
-Emri i crate-it duhet të jetë `zklogin-verifier` (prodhon `target/deploy/zklogin_verifier.so`).
+Flamuri `0x80` në byte-in e parë shton `sol_log_compute_units` pas çdo hapi. Formati i plotë i
+bytes është te koka e [`src/lib.rs`](src/lib.rs); logjika e hash-it te [`src/inputs.rs`](src/inputs.rs).
+
+```bash
+cargo build-sbf --manifest-path programs/zklogin-verifier/Cargo.toml
+# -> programs/zklogin-verifier/target/deploy/zklogin_verifier.so
+```
+
+Programi nuk është pjesë e workspace-it kryesor (ka `Cargo.lock` të vetin për toolchain-in SBF),
+por `bench/` e përdor si librari (`features = ["no-entrypoint"]`) për testet në host.
