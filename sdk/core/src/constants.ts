@@ -84,6 +84,9 @@ export const ERRORS: Record<number, string> = {
   44: "NoRecovery",
   45: "AboveThreshold",
   46: "SlotOccupied",
+  47: "PerExecuteLimitExceeded",
+  48: "FrequencyExceeded",
+  49: "InvalidDelegation",
 };
 
 /** Emri i gabimit nga një mesazh/objekt gabimi i web3.js (`custom program error: 0x21`). */

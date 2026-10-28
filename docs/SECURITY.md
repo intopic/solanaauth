@@ -109,6 +109,13 @@ një aplikacioni tjetër.
 
 ### 3.6 Çelësat e sesionit
 
+**V2:** çelësi i ekzekutimit është i ndryshëm nga çelësi OAuth i pronarit. Transaksioni i
+miratimit lidh politikën dhe çelësin e deleguar. Agjenti merr vetëm çelësin e vet dhe verifikon
+hash-in e politikës në llogarinë V2. Shih [AGENT-POLICIES.md](AGENT-POLICIES.md).
+**V1:** modeli i vjetër lidh të njëjtin çelës me provën OAuth. Mos ia jep një agjenti të pabesuar:
+prova publike dhe çelësi mund të përdoren si autoritet pronari. Revoko sesionet e vjetra të
+eksportuara dhe ri-autorizo një çelës V2; përditësimi nuk i konverton automatikisht.
+
 **Kërcënimi:** çelësi i sesionit vidhet (XSS, pajisje e komprometuar, agjent i komprometuar).
 
 **Mbrojtja (on-chain, D5, D12, D14):**
@@ -129,7 +136,7 @@ sesionit. Aplikacionet duhet të vendosin limite token konservative.
 **Kërcënimi:** një faqe ose përgjigje API bind agjentin AI të dërgojë fonde te sulmuesi.
 
 **Mbrojtja:**
-- Agjenti ka vetëm çelësin e sesionit (D23); JWT-ja s'ruhet pas hyrjes. Asgjë që agjenti "beson"
+- Në V2 agjenti ka vetëm çelësin e deleguar (D23); OAuth bëhet në wallet-in e klientit. Asgjë që agjenti "beson"
   s'e zgjeron politikën: limiti (p.sh. 20 USDC/ditë) dhe lista e programeve zbatohen on-chain.
 - `AgentWallet.check` refuzon lokalisht para se të ndërtojë tx-in, por kontrolli përfundimtar është
   i programit (`examples/agent-x402/test`: pagesa e 5-të refuzohet edhe on-chain me `0x21`).

@@ -44,6 +44,9 @@ pub enum AuthError {
     NoRecovery = 44,
     AboveThreshold = 45,
     SlotOccupied = 46,
+    PerExecuteLimitExceeded = 47,
+    FrequencyExceeded = 48,
+    InvalidDelegation = 49,
 }
 
 impl From<AuthError> for ProgramError {

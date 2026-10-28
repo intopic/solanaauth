@@ -5,6 +5,7 @@ import { Buffer } from "buffer";
  * (`fixtures/sdk-vectors.json`) dalin nga klienti Rust i testeve.
  */
 import { AccountMeta, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { sha256 } from "@noble/hashes/sha256";
 
 import { Writer, utf8 } from "./bytes.js";
 import {
@@ -26,30 +27,68 @@ import {
 export interface SpendLimit {
   /** `SOL_MINT` për SOL. */
   mint: PublicKey;
-  amount: bigint | number;
-  periodSecs: number;
+  amount?: bigint | number;
+  periodSecs?: number;
+  /** Optional maximum aggregate net debit in one execute. Zero forbids any debit. */
+  maxPerExecute?: bigint | number;
 }
 
 export interface Policy {
+  /** V1 preserves the original deny-by-default wire format. V2 supports optional rules. */
+  version?: 1 | 2;
   /** Sa sekonda jeton sesioni (kufizohet edhe nga `max_epoch` i provës). */
   expiresIn: number;
   /** Deri në 32 bytes UTF-8, p.sh. emri i agjentit. */
   label?: string;
-  allowedPrograms: PublicKey[];
-  limits: SpendLimit[];
+  /** V2: omitted = unrestricted; [] = no programs. */
+  allowedPrograms?: PublicKey[];
+  /** V2: sparse per-asset constraints; omitted = no asset constraints. */
+  limits?: SpendLimit[];
+  /** V2: if true, only mints appearing in limits may be debited. Default false. */
+  restrictAssets?: boolean;
+  /** Optional successful execute count per fixed window. Zero max blocks execution. */
+  frequency?: { maxExecutions: number; periodSecs: number };
 }
 
+export const isPolicyV2 = (p: Policy): boolean => p.version === 2 || (p.version !== 1 && (
+  p.allowedPrograms === undefined || p.limits === undefined || p.restrictAssets !== undefined || p.frequency !== undefined || p.limits.some(l => l.maxPerExecute !== undefined || l.amount === undefined)));
+
+/** Preserve legacy restriction semantics when promoting an existing policy to delegated V2. */
+export const delegationPolicy = (p: Policy): Policy => ({ ...p, version: 2, restrictAssets: p.restrictAssets ?? !isPolicyV2(p) });
+export const policyHash = (p: Policy): Uint8Array => sha256(encodePolicy(p));
+
 export function encodePolicy(p: Policy): Uint8Array {
-  if (p.allowedPrograms.length > MAX_PROGRAMS) throw new Error(`më shumë se ${MAX_PROGRAMS} programe`);
-  if (p.limits.length > MAX_LIMITS) throw new Error(`më shumë se ${MAX_LIMITS} limite`);
+  const v2 = isPolicyV2(p);
+  const programs = p.allowedPrograms ?? [];
+  const limits = p.limits ?? [];
+  if (p.version === 1 && (p.allowedPrograms === undefined || p.limits === undefined || p.frequency || p.restrictAssets !== undefined || limits.some(l => l.maxPerExecute !== undefined))) throw new Error("V2 rules cannot be encoded as V1");
+  if (!Number.isSafeInteger(p.expiresIn) || p.expiresIn <= 0) throw new RangeError("expiresIn must be positive");
+  if (programs.length > MAX_PROGRAMS) throw new Error(`më shumë se ${MAX_PROGRAMS} programe`);
+  if (limits.length > MAX_LIMITS) throw new Error(`më shumë se ${MAX_LIMITS} limite`);
+  if (new Set(programs.map(k => k.toBase58())).size !== programs.length || new Set(limits.map(l => l.mint.toBase58())).size !== limits.length) throw new Error("duplicate policy entry");
   const label = new Uint8Array(32);
   const l = utf8(p.label ?? "");
   if (l.length > 32) throw new Error("label > 32 bytes");
   label.set(l);
-  const w = new Writer().u32(p.expiresIn).u64(0).bytes(label).u8(p.allowedPrograms.length);
-  for (const prog of p.allowedPrograms) w.bytes(prog.toBytes());
-  w.u8(p.limits.length);
-  for (const lim of p.limits) w.bytes(lim.mint.toBytes()).u64(lim.amount).u32(lim.periodSecs);
+  const flags = (p.allowedPrograms === undefined ? 1 : 0) | (!p.restrictAssets ? 2 : 0) | (p.frequency ? 4 : 0);
+  const w = new Writer();
+  if (v2) w.u32(0).u8(2).u8(flags).u32(p.expiresIn);
+  else w.u32(p.expiresIn).u64(0);
+  w.bytes(label).u8(programs.length);
+  for (const prog of programs) w.bytes(prog.toBytes());
+  w.u8(limits.length);
+  for (const lim of limits) {
+    const periodic = lim.amount !== undefined;
+    if ((periodic && (!Number.isSafeInteger(lim.periodSecs) || lim.periodSecs! <= 0)) || (!periodic && lim.periodSecs !== undefined)) throw new Error("amount and positive periodSecs must be supplied together");
+    w.bytes(lim.mint.toBytes());
+    if (v2) w.u8((periodic ? 1 : 0) | (lim.maxPerExecute !== undefined ? 2 : 0));
+    w.u64(lim.amount ?? 0).u32(lim.periodSecs ?? 0);
+    if (v2) w.u64(lim.maxPerExecute ?? 0);
+  }
+  if (p.frequency) {
+    if (!Number.isSafeInteger(p.frequency.periodSecs) || p.frequency.periodSecs <= 0) throw new Error("frequency periodSecs must be positive");
+    w.u32(p.frequency.maxExecutions).u32(p.frequency.periodSecs);
+  }
   return w.finish();
 }
 
@@ -140,6 +179,8 @@ export interface ZkAccounts {
   sessionKey: PublicKey;
   jwk: PublicKey;
   wallet: PublicKey;
+  /** V2 execution key, distinct from the OAuth-authorized sessionKey. */
+  delegatedKey?: PublicKey;
 }
 
 /** `create_wallet`, me sesion kur jepet `policy` (hyrja e parë në një transaksion). */
@@ -160,8 +201,11 @@ export function createWallet(
     r(SYSTEM_PROGRAM_ID),
   ];
   if (policy) {
-    d.u8(1).bytes(encodePolicy(policy));
-    keys.push(w(sessionAddress(programId, a.wallet, a.sessionKey)));
+    const v2 = isPolicyV2(policy);
+    if (v2 && (!a.delegatedKey || a.delegatedKey.equals(a.sessionKey))) throw new Error("V2 requires a distinct delegatedKey");
+    d.u8(v2 ? 2 : 1).bytes(encodePolicy(policy));
+    keys.push(w(sessionAddress(programId, a.wallet, v2 ? a.delegatedKey! : a.sessionKey)));
+    if (v2) keys.push(r(a.delegatedKey!));
   } else {
     d.u8(0);
   }
@@ -169,6 +213,8 @@ export function createWallet(
 }
 
 export function openSession(programId: PublicKey, payer: PublicKey, a: ZkAccounts, zkBlock: Uint8Array, policy: Policy) {
+  const v2 = isPolicyV2(policy);
+  if (v2 && (!a.delegatedKey || a.delegatedKey.equals(a.sessionKey))) throw new Error("V2 requires a distinct delegatedKey");
   const data = new Writer().u8(Op.OpenSession).bytes(zkBlock).bytes(encodePolicy(policy)).finish();
   return ix(programId, data, [
     w(payer, true),
@@ -176,8 +222,9 @@ export function openSession(programId: PublicKey, payer: PublicKey, a: ZkAccount
     r(configAddress(programId)),
     r(a.jwk),
     w(a.wallet),
-    w(sessionAddress(programId, a.wallet, a.sessionKey)),
+    w(sessionAddress(programId, a.wallet, v2 ? a.delegatedKey! : a.sessionKey)),
     r(SYSTEM_PROGRAM_ID),
+    ...(v2 ? [r(a.delegatedKey!)] : []),
   ]);
 }
 

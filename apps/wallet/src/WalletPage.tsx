@@ -104,7 +104,7 @@ function Dashboard({ s, setS, run, busy, err }: { s: w.State; setS: (s: w.State 
               <tr key={address.toBase58()}>
                 <td>{x.label || "—"}{s.session?.session.equals(address) && <span className="muted"> (kjo faqe)</span>}</td>
                 <td>{new Date(Number(x.expiresAt) * 1000).toLocaleString()}</td>
-                <td>{x.allowedPrograms.length}</td>
+                <td>{x.unrestrictedPrograms ? "Pa kufizim" : x.allowedPrograms.length}</td>
                 <td className={active ? "ok" : "muted"}>{x.revoked ? "e revokuar" : active ? "aktive" : "e skaduar"}</td>
                 <td>{active && (s.passkey || (s.zk && !s.zk.foreign)) && <button onClick={() => run("Po revokohet…", () => w.revokeSession(s, address).then(refresh))}>Anulo</button>}</td>
               </tr>
@@ -112,6 +112,8 @@ function Dashboard({ s, setS, run, busy, err }: { s: w.State; setS: (s: w.State 
           })}
         </tbody>
       </table>
+
+      <AgentApproval s={s} run={run} refresh={refresh} />
 
       {acc && (
         <>
@@ -139,6 +141,31 @@ function Dashboard({ s, setS, run, busy, err }: { s: w.State; setS: (s: w.State 
       )}
     </main>
   );
+}
+
+function AgentApproval({ s, run, refresh }: { s: w.State; run: (label: string, f: () => Promise<unknown>) => Promise<void>; refresh: () => Promise<void> }) {
+  const [request, setRequest] = useState("");
+  const [receipt, setReceipt] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  let preview;
+  let error = "";
+  try { if (request) preview = w.agentRequest(request); } catch (e) { error = (e as Error).message; }
+  return <section>
+    <h2>Autorizo agjent</h2>
+    <p>Vendos kërkesën publike të agjentit. Hyrja Google/Apple dhe çelësi i pronarit qëndrojnë në këtë wallet.</p>
+    <textarea aria-label="Kërkesa e autorizimit" rows={6} value={request} onChange={e => { setRequest(e.target.value); setConfirmed(false); setReceipt(""); }} />
+    {error && <p className="bad">{error}</p>}
+    {preview && <div>
+      <p>Çelësi i agjentit: <code>{preview.sessionKey.toBase58()}</code></p>
+      <p>Programet: {preview.policy.allowedPrograms === undefined ? "pa kufizim" : preview.policy.allowedPrograms.length === 0 ? "asnjë" : preview.policy.allowedPrograms.map(p => p.toBase58()).join(", ")}</p>
+      <p>Asetet pa rregull: {preview.policy.restrictAssets ? "të ndaluara" : "pa kufizim"}. Jetëgjatësia: deri në {preview.policy.expiresIn} sekonda, e kufizuar edhe nga login-i.</p>
+      {preview.policy.limits?.map(l => <p key={l.mint.toBase58()}><code>{l.mint.toBase58()}</code>: {l.amount === undefined ? "pa kufi periodik" : `${l.amount} njësi bazë / ${l.periodSecs} sekonda`}; {l.maxPerExecute === undefined ? "pa kufi për veprim" : `${l.maxPerExecute} njësi bazë për execute`}</p>)}
+      <p>Frekuenca: {preview.policy.frequency ? `${preview.policy.frequency.maxExecutions} execute të suksesshme / ${preview.policy.frequency.periodSecs} sekonda` : "pa kufizim"}.</p>
+      <label><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} /> Miratoj kompetencat e mësipërme.</label>
+      <button disabled={!confirmed || !s.zk || s.zk.foreign} onClick={() => run("Po autorizohet agjenti…", async () => { setReceipt(await w.approveAgent(s, request)); setConfirmed(false); await refresh(); })}>Autorizo me wallet-in tim</button>
+    </div>}
+    {receipt && <><p>Ktheji agjentit vetëm këtë konfirmim publik:</p><textarea aria-label="Konfirmimi i autorizimit" rows={5} value={receipt} readOnly /></>}
+  </section>;
 }
 
 function Assets({ s, assets, run, refresh }: { s: w.State; assets: w.Asset[]; run: (l: string, f: () => Promise<unknown>) => Promise<void>; refresh: () => Promise<void> }) {

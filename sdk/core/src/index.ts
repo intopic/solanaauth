@@ -8,3 +8,4 @@ export * from "./pda.js";
 export * from "./zklogin.js";
 export * from "./message.js";
 export * from "./fees.js";
+export * from "./policy-json.js";

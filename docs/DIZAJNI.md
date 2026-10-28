@@ -93,6 +93,12 @@ Passkey     { pubkey: [u8; 33] (secp256r1, i ngjeshur), added_at: i64 }
 
 ## 5. Sesionet dhe politikat
 
+**V2:** Politikat opsionale, kufiri për execute dhe frekuenca janë te
+[`AGENT-POLICIES.md`](AGENT-POLICIES.md). Formati V1 më poshtë ruhet për kompatibilitet.
+Hyrja e re SDK krijon çelës ekzekutimi të ndryshëm nga çelësi i provës OAuth; miratimi i
+pronarit lidh çelësin e deleguar dhe politikën në të njëjtin transaksion të nënshkruar.
+Sesionet V2 janë 728 bytes; prefiksi V1 është 640 bytes.
+
 ```
 Session { wallet, session_key: [32], created_at, expires_at, revoked: bool, label: [u8; 32],
           allowed_programs: [Pubkey; 8] (n), spend_limits: [SpendLimit; 4] (n), max_fee: u64, bump }
@@ -101,9 +107,13 @@ SpendLimit { mint: Pubkey (default = SOL), amount: u64, period_secs: u32,
 ```
 
 ### 5.1 `open_session`
-`verify_full` (me JWK nga registry) + kontrolli që `zk_identity` është autoritet i portofolit +
+V1: `verify_full` (me JWK nga registry) + kontrolli që `zk_identity` është autoritet i portofolit +
 krijimi i `Session`. `session_key` = `eph_pubkey` i provës dhe **duhet të nënshkruajë transaksionin**,
 kështu nuk ka nevojë për precompile Ed25519: runtime-i e verifikon nënshkrimin falas.
+
+V2: prova lidhet me çelësin e pronarit; `delegated_key` është llogaria shtesë dhe duhet të jetë
+ndryshe. PDA-ja e sesionit dhe execute përdorin këtë çelës të deleguar. Agjenti nuk merr
+çelësin e pronarit dhe nuk mund të përdorë provën publike për të krijuar autorizim tjetër.
 
 ### 5.2 `execute`
 Nënshkruhet nga `session_key`. Programi:
@@ -199,7 +209,7 @@ Propozimi **SAA-1271** (si ERC-1271):
 | D2 | `max_epoch` = timestamp Unix | `Clock` i besueshëm; s'ka nevojë për epoka të Sui-t |
 | D3 | `session_key` nënshkruan tx-in | verifikim Ed25519 falas nga runtime-i |
 | D4 | Vault pa të dhëna, i ndarë nga `Wallet` | `system::transfer` kërkon `from` pa të dhëna |
-| D5 | Deny by default për asetet pa limit | më e sigurta: sesioni s'mund të nxjerrë asgjë që s'është lejuar shprehimisht |
+| D5 | V1: deny by default. V2: klienti zgjedh restrictAssets; rregullat e papërcaktuara nuk shtojnë kufizime | zero do të thotë ndalim, jo pa kufi; detajet te AGENT-POLICIES.md |
 | D6 | `kid` vetëm për menaxhim | modulus-i identifikon çelësin; shmang parsimin e header-it on-chain |
 | D7 | Timelock 48h në të dy drejtimet e rikuperimit | një faktor i vjedhur s'mund ta marrë portofolin pa dijeninë e tjetrit |
 | D8 | Programi i Hapit 1 mbetet; `solanaauth` e përdor si librari | matjet krahasuese mbeten të riprodhueshme |
@@ -217,7 +227,7 @@ Propozimi **SAA-1271** (si ERC-1271):
 | D20 | Në devnet `jwk_timelock_secs = 0` dhe `allow_test_vk = true` | quickstart-i punon menjëherë pas deploy-it; në mainnet build-i `mainnet` e ndalon VK-në test dhe timelock-u vendoset nga admini |
 | D21 | Në shfletues çelësi i sesionit ruhet në `localStorage` | një XSS merr sesionin, por vetëm brenda politikës (programe, limite, skadim) dhe përdoruesi e revokon me zk ose passkey; alternativa (WebCrypto jo-eksportues) s'ka Ed25519 në të gjithë shfletuesit |
 | D22 | Proxy-i i prover-it nuk verifikon nënshkrimin e JWT-së; kontrollon `aud`, `exp`, `keyClaimName = sub` dhe `maxEpoch ≤ tani + max_session_secs` | qarku verifikon RSA-në; proxy-i mbron vetëm kapacitetin |
-| D23 | Agjentët hyjnë me loopback `127.0.0.1` (si CLI-të OAuth) dhe përdorin vetëm çelësin e sesionit | agjenti nuk sheh kurrë JWT-në e përdoruesit pas hyrjes dhe s'ka asnjë rrugë për të dalë nga politika |
+| D23 | V2: agjenti gjeneron vetëm çelësin e deleguar; OAuth dhe miratimi zhvillohen në wallet-in e klientit | agjenti verifikon sesionin dhe hash-in e politikës on-chain; çelësi i provës nuk i jepet agjentit |
 | D24 | Pa paymaster (para M5) paguesi i hyrjes është vetë çelësi i sesionit; në devnet quickstart-i bën airdrop | asnjë çelës i hostuar; paymaster-i opsional vjen në M5 |
 | D25 | Në `execute` vetëm vault-i mund të jetë nënshkrues i instruksioneve të brendshme | përndryshe çdo nënshkrues i tx-it (fee payer-i, paymaster-i, serveri i aplikacionit, Kora) do t'i jepte sesionit autoritetin e vet: një `system::transfer` nga paymaster-i brenda `execute` do ta zbrazte. Test negativ në `bench` |
 | D26 | Paymaster-i sponsorizon vetëm instruksionet e `solanaauth` (+ ComputeBudget, secp256r1); paymaster-i mund të jetë vetëm fee payer ose paguesi i rent-it në `create_wallet`/`open_session`; kostoja matet me simulim para nënshkrimit dhe ka kufi për tx | asnjë rrugë për të nxjerrë SOL nga paymaster-i përtej tarifës dhe rent-it të portofolit/sesionit; ngarkesa = kosto reale e matur |

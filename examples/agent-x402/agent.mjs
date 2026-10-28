@@ -1,10 +1,10 @@
-// Agjent demo: hyn një herë (loopback Google), ruan sesionin (20 USDC/ditë, vetëm Token Program)
+// Agjent demo: kërkon autorizim nga wallet-i i klientit dhe ruan vetëm sesionin e deleguar.
 // dhe thërret një API me pagesë x402 derisa limiti e ndalon.
 //   RPC_URL, PROGRAM_ID, PLATFORM_URL, API_KEY, GOOGLE_CLIENT_ID, USDC_MINT, API_URL
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { AgentWallet, PolicyError, loginAgent, x402Fetch } from "@solanaauth/agent";
-import { SolanaAuth, paymasterFeePayer } from "@solanaauth/core";
+import { SolanaAuth, paymasterFeePayer, policyToJson } from "@solanaauth/core";
 
 const env = process.env;
 const FILE = env.SESSION_FILE ?? "agent-session.json";
@@ -31,7 +31,18 @@ if (existsSync(FILE)) {
     limits: [{ mint: usdc, amount: 20_000_000n, periodSecs: 86400 }],
   };
   console.log("Politika: vetëm transferta USDC, 20 USDC në ditë, 7 ditë.");
-  ({ wallet } = await loginAgent({ config, provider: "google", clientId: env.GOOGLE_CLIENT_ID, policy, port: 8976 }));
+  ({ wallet } = await loginAgent({ config, policy, authorize: async ({ sessionKey, policy }) => {
+    const requestFile = `${FILE}.request.json`, replyFile = `${FILE}.approval.json`;
+    writeFileSync(requestFile, JSON.stringify({ version: 1, programId: config.programId.toBase58(), sessionKey: sessionKey.toBase58(), policy: policyToJson(policy) }, null, 2));
+    console.log(`Hap wallet-in e klientit, hyr me Google/Apple dhe vendos përmbajtjen e ${requestFile} te Autorizo agjent. Ruaj konfirmimin publik te ${replyFile}.`);
+    const deadline = Date.now() + 10 * 60 * 1000;
+    while (!existsSync(replyFile)) {
+      if (Date.now() > deadline) throw new Error("autorizimi nuk mbërriti brenda 10 minutave");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    const reply = JSON.parse(readFileSync(replyFile, "utf8"));
+    return { wallet: new PublicKey(reply.wallet), signature: reply.signature, created: reply.created ?? false };
+  } }));
   wallet.save(FILE);
   console.log(`Vault-i i agjentit: ${wallet.vault.toBase58()} (dërgo USDC devnet këtu)`);
 }

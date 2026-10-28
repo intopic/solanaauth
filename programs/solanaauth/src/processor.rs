@@ -339,7 +339,11 @@ fn create_session(
     create_pda(
         payer,
         session_view,
-        Session::LEN,
+        if policy.v2 {
+            Session::V2_LEN
+        } else {
+            Session::LEN
+        },
         &[
             Seed::from(SEED_SESSION),
             Seed::from(wallet_view.address().as_ref()),
@@ -350,7 +354,7 @@ fn create_session(
     )?;
     let mut d = session_view.try_borrow_mut()?;
     let s = Session::init_bytes(&mut d)?;
-    s.version = VERSION;
+    s.version = if policy.v2 { 2 } else { VERSION };
     s.bump = bump;
     s.wallet = *wallet_view.address().as_array();
     s.session_key = *session_key.address().as_array();
@@ -358,6 +362,7 @@ fn create_session(
     s.expires_at
         .set(proof_expires_at.min(now.saturating_add(policy.expires_in as i64)));
     policy.apply(s, now, program_id)?;
+    policy.apply_rules(&mut d, now)?;
 
     let mut wd = wallet_view.try_borrow_mut()?;
     let w = Wallet::from_bytes_mut(&mut wd)?;
@@ -376,15 +381,18 @@ pub fn create_wallet(program_id: &Address, accounts: &[AccountView], data: &[u8]
     let mut r = Reader::new(data);
     let zkb = ZkBlock::read(&mut r)?;
     let flags = r.u8()?;
-    if flags > 1 {
+    if flags > 2 {
         return Err(AuthError::InvalidInstruction.into());
     }
-    let policy = if flags & 1 != 0 {
+    let policy = if flags != 0 {
         Some(Policy::read(&mut r)?)
     } else {
         None
     };
     r.finish()?;
+    if policy.as_ref().is_some_and(|p| p.v2 != (flags == 2)) {
+        return Err(AuthError::InvalidDelegation.into());
+    }
 
     let now = now()?;
     let v = verify_zk(&zkb, session_key, config, jwk, now, program_id)?;
@@ -421,9 +429,18 @@ pub fn create_wallet(program_id: &Address, accounts: &[AccountView], data: &[u8]
         let [session_view, ..] = rest else {
             return Err(AuthError::InvalidAccount.into());
         };
+        let delegate = if policy.v2 {
+            let key = rest.get(1).ok_or(AuthError::InvalidDelegation)?;
+            if key.address() == session_key.address() {
+                return Err(AuthError::InvalidDelegation.into());
+            }
+            key
+        } else {
+            session_key
+        };
         create_session(
             payer,
-            session_key,
+            delegate,
             wallet_view,
             session_view,
             &policy,
@@ -463,9 +480,18 @@ pub fn open_session(program_id: &Address, accounts: &[AccountView], data: &[u8])
     let now = now()?;
     let v = verify_zk(&zkb, session_key, config, jwk, now, program_id)?;
     require_wallet_identity(wallet_view, &v.identity, program_id)?;
+    let delegate = if policy.v2 {
+        let key = accounts.get(7).ok_or(AuthError::InvalidDelegation)?;
+        if key.address() == session_key.address() {
+            return Err(AuthError::InvalidDelegation.into());
+        }
+        key
+    } else {
+        session_key
+    };
     create_session(
         payer,
-        session_key,
+        delegate,
         wallet_view,
         session_view,
         &policy,
