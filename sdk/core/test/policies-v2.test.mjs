@@ -65,7 +65,9 @@ test('V2 execution frequency resets at its exact boundary and revocation blocks 
 test('delegated key cannot reuse the public owner proof to reopen a broader session after revocation', options, async () => {
   const w = await setup({ version: 2, expiresIn: 3600, limits: [{ mint: sa.SOL_MINT, maxPerExecute: 0n }] });
   await w.client.revoke(w.session, { feePayer: w.feePayer });
-  await w.client.send([sa.closeSession(w.programId, w.session.wallet, w.session.session)], w.session.sessionKey, w.feePayer);
+  const close = await w.client.transaction([sa.closeSession(w.programId, w.session.wallet, w.session.session)], w.feePayer.publicKey);
+  close.sign(w.feePayer);
+  await w.connection.sendRawTransaction(close.serialize());
   const zk = sa.encodeZkBlock(sa.normalizeInputs(kit.FX.inputs), kit.FX.max_epoch);
   const accounts = { wallet: w.session.wallet, sessionKey: w.session.sessionKey.publicKey, jwk: sa.jwkAddress(w.programId, w.iss, kit.FX.jwk.kid) };
   const legacy = { version: 1, expiresIn: 3600, allowedPrograms: [sa.SYSTEM_PROGRAM_ID], limits: [sa.solLimit(100_000_000n, 3600)] };

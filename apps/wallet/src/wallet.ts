@@ -121,10 +121,12 @@ export async function finishLogin(): Promise<State | null> {
 
   const wallet = resolved.wallet;
   const policy = await walletPolicy(vaultAddress(programId, wallet));
-  const { transaction, session } = await auth.buildLogin(jwt, pending, inputs, policy);
+  const { transaction, session } = await auth.buildLogin(jwt, pending, inputs, policy, sessionKey.publicKey);
   await airdrop(sessionKey.publicKey);
-  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-  transaction.sign(sessionKey, session.sessionKey);
+  const latest = await connection.getLatestBlockhash();
+  transaction.recentBlockhash = latest.blockhash;
+  transaction.lastValidBlockHeight = latest.lastValidBlockHeight;
+  transaction.sign(sessionKey);
   const sig = await connection.sendRawTransaction(transaction.serialize());
   await confirmTransaction(connection, sig);
   return {

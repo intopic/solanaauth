@@ -19,7 +19,7 @@ import {
   deserializeSession,
   fetchSession,
   serializeSession,
-  delegationPolicy, policyHash, sessionAddress, vaultAddress,
+  delegationPolicy, policyHash, sessionAddress, vaultAddress, decodeSession,
 } from "@solanaauth/core";
 
 export const ATA_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
@@ -209,7 +209,7 @@ export async function loginAgent(o: AgentLoginOptions): Promise<{ wallet: AgentW
   const address = sessionAddress(auth.programId, reply.wallet, sessionKey.publicKey);
   const info = await auth.connection.getAccountInfo(address);
   if (!info || !info.owner?.equals(auth.programId)) throw new PolicyError("InvalidDelegation", "missing program-owned approval");
-  const approved = await fetchSession(auth.connection, address);
+  const approved = decodeSession(info.data);
   const now = o.now ?? Math.floor(Date.now() / 1000);
   if (!approved || approved.version !== 2 || approved.revoked || approved.expiresAt <= BigInt(now)
       || !approved.wallet.equals(reply.wallet) || !approved.sessionKey.equals(sessionKey.publicKey)
