@@ -52,6 +52,27 @@ test('high-level login exports an execution key separate from the OAuth key and 
   await assert.rejects(auth.buildDelegation(jwt, pending, sa.normalizeInputs(fx.inputs), { version: 2, expiresIn: 60 }, owner.publicKey), /must differ/);
   await assert.rejects(loginAgent({ config: {}, policy: { version: 2, expiresIn: 60 } }), /Client wallet authorization required/);
 });
+
+test('agent accepts only a matching program-owned approval and rejects substituted policy receipts', async () => {
+  const programId = key(), wallet = key();
+  const policy = { version: 2, expiresIn: 60 };
+  for (const wrong of ['none', 'hash', 'owner']) {
+    let data;
+    const config = { programId, proverUrl: '', saltUrl: '', connection: { getAccountInfo: async () => ({ data, owner: wrong === 'owner' ? key() : programId }) } };
+    const run = loginAgent({ config, policy, now: 1, authorize: async request => {
+      data = Buffer.alloc(728);
+      data[0] = 4; data[1] = 2; data[6] = 3;
+      data.set(wallet.toBytes(), 8);
+      data.set(request.sessionKey.toBytes(), 40);
+      data.writeBigInt64LE(61n, 80);
+      data.set(sa.policyHash(request.policy), 696);
+      if (wrong === 'hash') data[696] ^= 1;
+      return { wallet, signature: 'public-receipt', created: false };
+    } });
+    if (wrong === 'none') assert.ok((await run).wallet.session.wallet.equals(wallet));
+    else await assert.rejects(run, e => e.code === 'InvalidDelegation');
+  }
+});
 test('patched RPC client retains the web3 HTTP JSON-RPC contract', async () => {
   const connection = new Connection('http://localhost:8899', { fetch: async (_url, init) => {
     const request = JSON.parse(init.body);
