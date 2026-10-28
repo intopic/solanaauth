@@ -11,6 +11,7 @@ import {
   decodeJwt, decodeJwtHeader, decodeWallet, discoverBrowserPasskey, encodeZkBlock, fetchSessions, finishRecovery, genAddressSeed,
   jwkAddress, passkeyOps, paymasterFeePayer, revokeSessionZk, vaultAddress, zkIdentity, toBigEndian, PendingLogin,
   confirmTransaction,
+  openSession, policyFromJson, policyHash, toHex,
 } from "@solanaauth/core";
 
 const env = import.meta.env;
@@ -120,9 +121,11 @@ export async function finishLogin(): Promise<State | null> {
 
   const wallet = resolved.wallet;
   const policy = await walletPolicy(vaultAddress(programId, wallet));
-  const { transaction, session } = await auth.buildLogin(jwt, pending, inputs, policy);
+  const { transaction, session } = await auth.buildLogin(jwt, pending, inputs, policy, sessionKey.publicKey);
   await airdrop(sessionKey.publicKey);
-  transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+  const latest = await connection.getLatestBlockhash();
+  transaction.recentBlockhash = latest.blockhash;
+  transaction.lastValidBlockHeight = latest.lastValidBlockHeight;
   transaction.sign(sessionKey);
   const sig = await connection.sendRawTransaction(transaction.serialize());
   await confirmTransaction(connection, sig);
@@ -142,6 +145,22 @@ export async function attachPasskey(s: State): Promise<State> {
   const selected = await passkeyLogin();
   if (!selected.wallet.equals(s.wallet)) throw new Error("passkey-i i përket një portofoli tjetër");
   return { ...s, passkey: selected.passkey };
+}
+
+export function agentRequest(text: string) {
+  if (text.length > 16384) throw new Error("kërkesë shumë e madhe");
+  const r = JSON.parse(text);
+  if (r.version !== 1 || r.programId !== programId.toBase58()) throw new Error("programi i kërkesës nuk përputhet me këtë wallet");
+  return { sessionKey: new PublicKey(r.sessionKey), policy: policyFromJson(r.policy) };
+}
+
+/** Runs in the owner's wallet; only the public delegation receipt goes back to the agent. */
+export async function approveAgent(s: State, text: string) {
+  if (!s.zk || s.zk.foreign || !s.zkKey) throw new Error("autorizo me Google/Apple të pronarit");
+  const request = agentRequest(text);
+  const instruction = openSession(programId, s.zkKey.publicKey, { ...s.zk.accounts, delegatedKey: request.sessionKey }, s.zk.block, request.policy);
+  const signature = await sendZk(s, [instruction]);
+  return JSON.stringify({ wallet: s.wallet.toBase58(), signature, created: false, policyHash: toHex(policyHash(request.policy)) }, null, 2);
 }
 
 export async function loadWallet(wallet: PublicKey): Promise<WalletAccount | null> {

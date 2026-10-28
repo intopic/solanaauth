@@ -274,30 +274,47 @@ export class SolanaAuth {
 
   /** Si `completeLogin`, me provën të marrë tashmë. */
   async buildLogin(jwt: string, pending: PendingLogin, inputs: ZkLoginInputs, policy: Policy, payer?: PublicKey) {
+    const sessionKey = Keypair.generate();
+    const result = await this.buildDelegation(jwt, pending, inputs, policy, sessionKey.publicKey, payer ?? this.opts.feePayer?.publicKey ?? sessionKey.publicKey);
+    if (result.transaction.feePayer?.equals(sessionKey.publicKey)) result.transaction.partialSign(sessionKey);
+    return { transaction: result.transaction, created: result.created, session: { ...result.authorization, sessionKey } };
+  }
+
+  /** Owner-side API. The agent supplies only its public key; OAuth secrets stay here. */
+  async authorizeAgent(jwt: string, pending: PendingLogin, policy: Policy, delegatedKey: PublicKey, payer?: PublicKey) {
+    if (decodeJwt(jwt).nonce !== pending.nonce) throw new Error("nonce-i i JWT-së nuk përputhet");
+    const salt = await this.fetchSalt(jwt);
+    const inputs = await this.prove(jwt, pending, salt);
+    return this.buildDelegation(jwt, pending, inputs, policy, delegatedKey, payer);
+  }
+
+  /** Same owner approval using proof inputs already obtained by the client wallet. */
+  async buildDelegation(jwt: string, pending: PendingLogin, inputs: ZkLoginInputs, policy: Policy, delegatedKey: PublicKey, payer?: PublicKey) {
     const claims = decodeJwt(jwt);
     const { kid } = decodeJwtHeader(jwt);
-    const sessionKey = Keypair.fromSecretKey(pending.ephemeralSecretKey);
+    const ownerKey = Keypair.fromSecretKey(pending.ephemeralSecretKey);
+    if (ownerKey.publicKey.equals(delegatedKey)) throw new Error("delegated key must differ from the OAuth authority");
+    const approvedPolicy = ixs.delegationPolicy(policy);
     const { identity } = this.walletFor(claims.iss, inputs.addressSeed);
     const { wallet, exists } = await this.resolveWallet(identity);
     const vault = vaultAddress(this.programId, wallet);
     const zk = encodeZkBlock(inputs, pending.maxEpoch, this.opts.vkTest);
-    const accounts = { sessionKey: sessionKey.publicKey, jwk: jwkAddress(this.programId, claims.iss, kid), wallet };
-    const feePayer = payer ?? this.opts.feePayer?.publicKey ?? sessionKey.publicKey;
+    const accounts = { sessionKey: ownerKey.publicKey, delegatedKey, jwk: jwkAddress(this.programId, claims.iss, kid), wallet };
+    const feePayer = payer ?? this.opts.feePayer?.publicKey ?? ownerKey.publicKey;
     const ix = exists
-      ? ixs.openSession(this.programId, feePayer, accounts, zk, policy)
-      : ixs.createWallet(this.programId, feePayer, accounts, zk, policy);
+      ? ixs.openSession(this.programId, feePayer, accounts, zk, approvedPolicy)
+      : ixs.createWallet(this.programId, feePayer, accounts, zk, approvedPolicy);
     const transaction = await this.transaction([ix], feePayer);
-    transaction.partialSign(sessionKey);
+    transaction.partialSign(ownerKey);
     const now = Math.floor(Date.now() / 1000);
     return {
       transaction,
       created: !exists,
-      session: {
+      authorization: {
         wallet,
         vault,
-        session: sessionAddress(this.programId, wallet, sessionKey.publicKey),
-        sessionKey,
-        expiresAt: Math.min(pending.maxEpoch, now + policy.expiresIn),
+        session: sessionAddress(this.programId, wallet, delegatedKey),
+        expiresAt: Math.min(pending.maxEpoch, now + approvedPolicy.expiresIn),
         identity,
       },
     };

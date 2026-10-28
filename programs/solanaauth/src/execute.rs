@@ -16,7 +16,7 @@ use pinocchio::{
 };
 
 use crate::error::{AuthError, Result};
-use crate::policy::{charge, is_forbidden};
+use crate::policy::{charge_execution, is_forbidden, record_execution};
 use crate::processor::SYSTEM_PROGRAM;
 use crate::state::{Session, Wallet, MAX_PROGRAMS, SEED_VAULT, THRESHOLD_WINDOW_SECS};
 use crate::util::{derive_pda, find_pda, now, require_signer, require_writable, Account, Reader};
@@ -91,6 +91,7 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
     let vault_bump = Wallet::from_bytes(&wallet_view.try_borrow()?)?.vault_bump;
     let mut allowed = [[0u8; 32]; MAX_PROGRAMS];
     let n_allowed;
+    let unrestricted_programs;
     {
         let d = session_view.try_borrow()?;
         let s = Session::from_bytes(&d)?;
@@ -106,6 +107,7 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
             return Err(AuthError::SessionExpired.into());
         }
         n_allowed = s.n_programs as usize;
+        unrestricted_programs = s.unrestricted_programs();
         allowed[..n_allowed].copy_from_slice(s.programs());
     }
     let expected_vault = derive_pda(
@@ -189,7 +191,7 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
         if is_forbidden(program.address(), program_id) {
             return Err(AuthError::ForbiddenProgram.into());
         }
-        if !allowed[..n_allowed].contains(program.address().as_array()) {
+        if !unrestricted_programs && !allowed[..n_allowed].contains(program.address().as_array()) {
             return Err(AuthError::ProgramNotAllowed.into());
         }
         let n_acc = r.u8()? as usize;
@@ -260,9 +262,17 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
         } else {
             // A newly created vault ATA must not change its token authority before the
             // final scan either: future deposits still target its deterministic address.
-            let token_program = if a.owned_by(&TOKEN_PROGRAM) { &TOKEN_PROGRAM } else { &TOKEN_2022_PROGRAM };
+            let token_program = if a.owned_by(&TOKEN_PROGRAM) {
+                &TOKEN_PROGRAM
+            } else {
+                &TOKEN_2022_PROGRAM
+            };
             let (expected, _) = find_pda(
-                &[vault.address().as_ref(), token_program.as_ref(), &d[TA_MINT]],
+                &[
+                    vault.address().as_ref(),
+                    token_program.as_ref(),
+                    &d[TA_MINT],
+                ],
                 &ASSOCIATED_TOKEN_PROGRAM,
             );
             if a.address() == &expected {
@@ -331,10 +341,10 @@ pub fn execute(program_id: &Address, accounts: &[AccountView], data: &[u8]) -> P
     }
 
     let mut d = session_view.try_borrow_mut()?;
-    let s = Session::from_bytes_mut(&mut d)?;
-    charge(s, &[0u8; 32], sol_out, now)?;
+    record_execution(&mut d, now)?;
+    charge_execution(&mut d, &[0u8; 32], sol_out, now)?;
     for (mint, amount) in &spent[..n_spent] {
-        charge(s, mint, *amount, now)?;
+        charge_execution(&mut d, mint, *amount, now)?;
     }
     Ok(())
 }

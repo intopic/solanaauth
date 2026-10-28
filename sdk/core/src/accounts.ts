@@ -66,6 +66,7 @@ export function decodeWallet(data: Uint8Array): WalletAccount {
 }
 
 export interface SessionAccount {
+  version: 1 | 2;
   revoked: boolean;
   wallet: PublicKey;
   sessionKey: PublicKey;
@@ -73,14 +74,21 @@ export interface SessionAccount {
   expiresAt: bigint;
   label: string;
   allowedPrograms: PublicKey[];
-  limits: { mint: PublicKey; amount: bigint; periodSecs: number; windowStart: bigint; spent: bigint }[];
+  unrestrictedPrograms: boolean;
+  unrestrictedAssets: boolean;
+  limits: { mint: PublicKey; amount: bigint; periodSecs: number; windowStart: bigint; spent: bigint; periodicEnabled: boolean; maxPerExecute?: bigint }[];
+  frequency?: { maxExecutions: number; periodSecs: number; executions: number; windowStart: bigint };
+  policyHash?: Uint8Array;
 }
 
 export function decodeSession(data: Uint8Array): SessionAccount {
-  if (data.length !== 640 || data[0] !== 4) throw new Error("s'është llogari Session");
+  if (data[0] !== 4 || !((data.length === 640 && data[1] === 1) || (data.length === 728 && data[1] === 2))) throw new Error("s'është llogari Session");
+  const version = data[1] as 1 | 2;
+  const flags = version === 2 ? data[6] : 0;
   const revoked = data[3] !== 0;
   const nPrograms = data[4];
   const nLimits = data[5];
+  if (nPrograms > MAX_PROGRAMS || nLimits > MAX_LIMITS || flags & ~7 || (version === 2 && data[7] !== 0)) throw new Error("invalid session layout");
   const r = new R(data, 8);
   const wallet = r.key();
   const sessionKey = r.key();
@@ -99,12 +107,23 @@ export function decodeSession(data: Uint8Array): SessionAccount {
     const mint = r.key();
     const amount = r.u64();
     const periodSecs = r.u32();
-    r.skip(4);
+    const limitFlags = r.u8();
+    r.skip(3);
     const windowStart = r.i64();
     const spent = r.u64();
-    if (i < nLimits) limits.push({ mint, amount, periodSecs, windowStart, spent });
+    if (i < nLimits) limits.push({ mint, amount, periodSecs, windowStart, spent, periodicEnabled: version === 1 || !!(limitFlags & 1), maxPerExecute: version === 2 && limitFlags & 2 ? new DataView(data.buffer, data.byteOffset, data.byteLength).getBigUint64(640 + 8 * i, true) : undefined });
   }
-  return { revoked, wallet, sessionKey, createdAt, expiresAt, label, allowedPrograms, limits };
+  let frequency;
+  let policyHash;
+  if (version === 2) {
+    r.skip(32);
+    const maxExecutions = r.u32(), periodSecs = r.u32(), executions = r.u32();
+    r.skip(4);
+    const windowStart = r.i64();
+    policyHash = r.bytes(32);
+    if (flags & 4) frequency = { maxExecutions, periodSecs, executions, windowStart };
+  }
+  return { version, revoked, wallet, sessionKey, createdAt, expiresAt, label, allowedPrograms, limits, unrestrictedPrograms: !!(flags & 1), unrestrictedAssets: !!(flags & 2), frequency, policyHash };
 }
 
 export async function fetchWallet(c: Connection, wallet: PublicKey): Promise<WalletAccount | null> {
@@ -131,8 +150,9 @@ export async function findWalletsByIdentity(c: Connection, programId: PublicKey,
 
 /** Sesionet e një portofoli (offset 8 = `wallet`). */
 export async function fetchSessions(c: Connection, programId: PublicKey, wallet: PublicKey): Promise<{ address: PublicKey; session: SessionAccount }[]> {
-  const accs = await c.getProgramAccounts(programId, { filters: [{ dataSize: 640 }, { memcmp: { offset: 8, bytes: wallet.toBase58() } }] });
-  return accs.map((a) => ({ address: a.pubkey, session: decodeSession(a.account.data) }));
+  const groups = await Promise.all([640, 728].map(dataSize => c.getProgramAccounts(programId, { filters: [{ dataSize }, { memcmp: { offset: 8, bytes: wallet.toBase58() } }] })));
+  const accs = new Map(groups.flat().map(a => [a.pubkey.toBase58(), a]));
+  return [...accs.values()].map((a) => ({ address: a.pubkey, session: decodeSession(a.account.data) }));
 }
 
 export interface JwkKeyInfo {

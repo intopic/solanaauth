@@ -6,9 +6,7 @@
  * Përdoruesi mund ta revokojë sesionin në çdo kohë nga faqja e portofolit (zk ose passkey).
  */
 import { chmodSync, readFileSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
-import { AddressInfo } from "node:net";
-import { Connection, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
 import {
   Policy,
   SOL_MINT,
@@ -21,6 +19,7 @@ import {
   deserializeSession,
   fetchSession,
   serializeSession,
+  delegationPolicy, policyHash, sessionAddress, vaultAddress, decodeSession,
 } from "@solanaauth/core";
 
 export const ATA_PROGRAM_ID = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
@@ -58,7 +57,8 @@ export class PolicyError extends Error {
 export interface Allowance {
   mint: PublicKey;
   limit: bigint;
-  remaining: bigint;
+  remaining: bigint | null;
+  maxPerExecute?: bigint;
   periodSecs: number;
   resetsAt: bigint;
 }
@@ -72,6 +72,9 @@ export interface AgentStatus {
   revoked: boolean;
   allowedPrograms: PublicKey[];
   allowances: Allowance[];
+  unrestrictedPrograms: boolean;
+  unrestrictedAssets: boolean;
+  frequency?: SessionAccount["frequency"];
 }
 
 export function allowances(s: SessionAccount, now: bigint): Allowance[] {
@@ -80,7 +83,8 @@ export function allowances(s: SessionAccount, now: bigint): Allowance[] {
     return {
       mint: l.mint,
       limit: l.amount,
-      remaining: expired ? l.amount : l.amount - l.spent,
+      remaining: l.periodicEnabled ? (expired ? l.amount : l.amount - l.spent) : null,
+      maxPerExecute: l.maxPerExecute,
       periodSecs: l.periodSecs,
       resetsAt: expired ? now + BigInt(l.periodSecs) : l.windowStart + BigInt(l.periodSecs),
     };
@@ -116,6 +120,7 @@ export class AgentWallet {
   async status(now?: bigint): Promise<AgentStatus> {
     const s = await fetchSession(this.connection, this.session.session);
     if (!s) throw new PolicyError("SessionClosed", "sesioni nuk ekziston më");
+    if (s.version !== 2) throw new PolicyError("InvalidDelegation", "legacy session: create a client-approved V2 delegation before using an agent");
     const t = now ?? this.clock();
     return {
       wallet: this.session.wallet,
@@ -126,6 +131,9 @@ export class AgentWallet {
       revoked: s.revoked,
       allowedPrograms: s.allowedPrograms,
       allowances: allowances(s, t),
+      unrestrictedPrograms: s.unrestrictedPrograms,
+      unrestrictedAssets: s.unrestrictedAssets,
+      frequency: s.frequency,
     };
   }
 
@@ -135,19 +143,23 @@ export class AgentWallet {
     const t = now ?? this.clock();
     if (st.revoked) throw new PolicyError("SessionRevoked", "sesioni është revokuar");
     if (t >= st.expiresAt) throw new PolicyError("SessionExpired", "sesioni ka skaduar");
+    if (st.frequency && t < st.frequency.windowStart + BigInt(st.frequency.periodSecs) && st.frequency.executions >= st.frequency.maxExecutions) throw new PolicyError("FrequencyExceeded", "limiti i veprimeve u arrit");
+    if (st.frequency?.maxExecutions === 0) throw new PolicyError("FrequencyExceeded", "ekzekutimi është ndaluar");
     for (const p of programs) {
-      if (!st.allowedPrograms.some((a) => a.equals(p))) throw new PolicyError("ProgramNotAllowed", `programi ${p.toBase58()} s'lejohet`);
+      if (!st.unrestrictedPrograms && !st.allowedPrograms.some((a) => a.equals(p))) throw new PolicyError("ProgramNotAllowed", `programi ${p.toBase58()} s'lejohet`);
     }
     for (const s of spend) {
       const a = st.allowances.find((x) => x.mint.equals(s.mint));
-      if (!a) throw new PolicyError("AssetNotAllowed", `aseti ${s.mint.toBase58()} s'ka limit`);
-      if (s.amount > a.remaining) throw new PolicyError("SpendLimitExceeded", `mbeten ${a.remaining}, kërkohen ${s.amount}`);
+      if (!a) { if (st.unrestrictedAssets) continue; throw new PolicyError("AssetNotAllowed", `aseti ${s.mint.toBase58()} s'ka limit`); }
+      if (a.maxPerExecute !== undefined && s.amount > a.maxPerExecute) throw new PolicyError("PerExecuteLimitExceeded", "limiti për veprim u tejkalua");
+      if (a.remaining !== null && s.amount > a.remaining) throw new PolicyError("SpendLimitExceeded", `mbeten ${a.remaining}, kërkohen ${s.amount}`);
     }
     return st;
   }
 
   async execute(instructions: TransactionInstruction[]): Promise<string> {
     try {
+      await this.status();
       return await this.auth.execute(this.session, instructions);
     } catch (e) {
       const code = decodeError(e);
@@ -171,82 +183,43 @@ export class AgentWallet {
   }
 }
 
-const CALLBACK_HTML = `<!doctype html><meta charset="utf-8"><title>solanaauth</title>
-<body style="font:16px system-ui;margin:3rem">Po lidh agjentin…<script>
-fetch("/token",{method:"POST",body:location.hash.slice(1)}).then(r=>r.text()).then(t=>document.body.textContent=t);
-history.replaceState(null,"","/");
-</script>`;
-
+/** Agent side: sends only its public key to the client's trusted wallet approval flow. */
 export interface AgentLoginOptions {
   config: SolanaAuthOptions;
-  provider: "google" | "apple";
-  clientId: string;
   policy: Policy;
-  /** Porti lokal i loopback-ut; redirect URI `http://127.0.0.1:<port>/callback` duhet regjistruar te OAuth. */
-  port?: number;
-  /** Hap URL-në (p.sh. `open`); parazgjedhja e printon. */
-  open?: (url: string) => void;
-  /** Kohëzgjatja e provës (`max_epoch` = tani + kjo). Parazgjedhja: `policy.expiresIn`. */
-  sessionSecs?: number;
-  /** Ora (unix sekonda); për teste. */
   now?: number;
-  /** Paguesi i transaksionit; parazgjedhja: çelësi i sesionit (duhet SOL). */
-  submit?: (tx: Transaction) => Promise<string>;
+  /** Deprecated OAuth hints. Authentication must run in the client wallet, never the agent. */
+  provider?: "google" | "apple";
+  clientId?: string;
+  authorize?: (request: { sessionKey: PublicKey; policy: Policy }) => Promise<{
+    wallet: PublicKey; signature: string; created: boolean; identity?: Uint8Array;
+  }>;
 }
 
-/**
- * Hyrja nga terminali: hap OAuth në shfletues, merr `id_token` në një server lokal (127.0.0.1),
- * dhe hap sesionin për çelësin e agjentit. Përdoruesi sheh politikën në ekranin e pëlqimit
- * (faqja e portofolit, M5); këtu ajo printohet para hyrjes.
- */
 export async function loginAgent(o: AgentLoginOptions): Promise<{ wallet: AgentWallet; created: boolean; signature: string }> {
-  if (o.provider === "apple") throw new Error("Apple requires an HTTPS domain callback; use BrowserLogin instead of a loopback login");
-  const auth = new SolanaAuth({ client: "agent", ...o.config });
-  const pending = auth.beginLogin(o.sessionSecs ?? o.policy.expiresIn, o.now);
-  const state = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString("hex");
-  let resolve!: (jwt: string) => void;
-  let reject!: (e: Error) => void;
-  const got = new Promise<string>((a, b) => ((resolve = a), (reject = b)));
-  const server = createServer(async (req, res) => {
-    if (req.method === "GET" && req.url?.startsWith("/callback")) {
-      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      return res.end(CALLBACK_HTML);
-    }
-    if (req.method === "POST" && req.url === "/token") {
-      let body = "";
-      for await (const c of req) body += c;
-      const p = new URLSearchParams(body);
-      if (p.get("state") !== state) {
-        res.writeHead(400).end("state nuk përputhet");
-        return reject(new Error("state nuk përputhet"));
-      }
-      const jwt = p.get("id_token");
-      if (!jwt) {
-        res.writeHead(400).end("mungon id_token");
-        return reject(new Error(p.get("error") ?? "mungon id_token"));
-      }
-      res.writeHead(200).end("Agjenti u lidh. Mund ta mbyllësh këtë faqe.");
-      return resolve(jwt);
-    }
-    res.writeHead(404).end();
-  });
-  await new Promise<void>((r) => server.listen(o.port ?? 0, "127.0.0.1", r));
-  const port = (server.address() as AddressInfo).port;
-  const url = SolanaAuth.oauthUrl({ provider: o.provider, clientId: o.clientId, redirectUri: `http://127.0.0.1:${port}/callback`, nonce: pending.nonce, state });
-  (o.open ?? ((u) => console.log(`Hap në shfletues:\n${u}`)))(url);
-  try {
-    const jwt = await got;
-    const { transaction, session, created } = await auth.completeLogin(jwt, pending, o.policy);
-    let signature: string;
-    if (o.submit) signature = await o.submit(transaction);
-    else if (auth.feePayer) signature = await auth.feePayer.submit(transaction);
-    else {
-      transaction.sign(session.sessionKey);
-      signature = await auth.connection.sendRawTransaction(transaction.serialize());
-    }
-    return { wallet: new AgentWallet(auth, session), created, signature };
-  } finally {
-    server.close();
+  if (!o.authorize) {
+    if (o.provider === "apple") throw new Error("Apple requires an HTTPS domain callback in the client wallet; provide authorize");
+    throw new Error("Client wallet authorization required: provide authorize; OAuth credentials must not enter the agent");
   }
+  const auth = new SolanaAuth({ ...o.config, client: "agent" });
+  const sessionKey = Keypair.generate();
+  const policy = delegationPolicy(o.policy);
+  const expectedHash = policyHash(policy);
+  const reply = await o.authorize({ sessionKey: sessionKey.publicKey, policy });
+  const address = sessionAddress(auth.programId, reply.wallet, sessionKey.publicKey);
+  const info = await auth.connection.getAccountInfo(address);
+  if (!info || !info.owner?.equals(auth.programId)) throw new PolicyError("InvalidDelegation", "missing program-owned approval");
+  const approved = decodeSession(info.data);
+  const now = o.now ?? Math.floor(Date.now() / 1000);
+  if (!approved || approved.version !== 2 || approved.revoked || approved.expiresAt <= BigInt(now)
+      || !approved.wallet.equals(reply.wallet) || !approved.sessionKey.equals(sessionKey.publicKey)
+      || !approved.policyHash?.every((b, i) => b === expectedHash[i])) {
+    throw new PolicyError("InvalidDelegation", "on-chain approval does not match the requested key and policy");
+  }
+  const session: Session = {
+    wallet: reply.wallet, vault: vaultAddress(auth.programId, reply.wallet), session: address,
+    sessionKey, expiresAt: Number(approved.expiresAt), identity: reply.identity ?? new Uint8Array(32),
+  };
+  return { wallet: new AgentWallet(auth, session), created: reply.created, signature: reply.signature };
 }
 export * from "./x402.js";

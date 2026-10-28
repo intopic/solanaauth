@@ -55,18 +55,22 @@ Programi mat rënien e çdo token account-i të vault-it pas CPI-së; mbi limit 
 
 ## Agjent AI me x402
 
-Agjenti hyn një herë me Google përmes loopback (`127.0.0.1`), ruan vetëm çelësin e sesionit dhe
+Agjenti kërkon miratim nga wallet-i i klientit, ruan vetëm çelësin e deleguar dhe
 paguan API-të që kthejnë `402 Payment Required` (skema `exact` në Solana).
 
 ```ts
 import { loginAgent, x402Fetch } from "@solanaauth/agent";
-const { wallet } = await loginAgent({ config, provider: "google", clientId, policy: {
+const { wallet } = await loginAgent({ config, authorize: requestApprovalFromClientWallet, policy: {
   expiresIn: 7 * 86400, label: "agjent",
   allowedPrograms: [TOKEN_PROGRAM_ID],
   limits: [{ mint: USDC, amount: 20_000_000n, periodSecs: 86400 }], // 20 USDC/ditë
 }});
 const res = await x402Fetch(wallet, "https://api.shembull.com/weather");
 ```
+
+`requestApprovalFromClientWallet` është integrimi i aplikacionit: merr vetëm çelësin publik dhe
+politikën, pastaj kthen konfirmimin publik të miratimit. Rrjedha e plotë dhe shembulli me skedarë
+janë te [AGENT-POLICIES.md](AGENT-POLICIES.md). JWT/prova/çelësi i pronarit nuk dërgohen te agjenti.
 
 `x402Fetch` lexon kërkesat e pagesës, kontrollon limitin lokalisht (`PolicyError`), ndërton
 `transferChecked` brenda `execute` me facilitator-in si fee payer (`extra.feePayer`), e nënshkruan

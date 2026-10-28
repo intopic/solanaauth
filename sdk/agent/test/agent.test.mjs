@@ -27,7 +27,7 @@ function svmConnection(svm) {
     },
     async getAccountInfo(pk) {
       const a = svm.getAccount(A(pk));
-      return a?.exists === false || !a?.data ? null : { data: Buffer.from(a.data) };
+      return a?.exists === false || !a?.data ? null : { data: Buffer.from(a.data), owner: new PublicKey(a.programAddress) };
     },
     async getBalance(pk) { return Number(svm.getBalance(A(pk)) ?? 0n); },
     async sendRawTransaction(raw) {
@@ -70,7 +70,7 @@ function setup() {
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 
-test("loginAgent (loopback) → transferSol brenda limitit → refuzim mbi limit", { skip: !available && "mungon solanaauth.so" }, async () => {
+test("loginAgent (client-wallet approval) → transferSol brenda limitit → refuzim mbi limit", { skip: !available && "mungon solanaauth.so" }, async () => {
   const { svm, programId, admin, connection, send } = setup();
   await send([sa.initConfig(programId, admin.publicKey, {
     admin: admin.publicKey, oracle: admin.publicKey, jwkTimelockSecs: 0, maxSessionSecs: 86400, recoveryDelaySecs: 172800, allowTestVk: false,
@@ -79,40 +79,22 @@ test("loginAgent (loopback) → transferSol brenda limitit → refuzim mbi limit
   await send([sa.proposeJwk(programId, admin.publicKey, admin.publicKey, { iss, kid: FX.jwk.kid, modulus: sa.base64UrlDecode(FX.jwk.n), validFrom: 0, validUntil: 2n ** 62n })], [admin]);
   await send([sa.applyJwk(programId, sa.jwkAddress(programId, iss, FX.jwk.kid))], [admin]);
 
-  // Prova e fixture-it është për një çelës ephemeral të caktuar dhe max_epoch = 10; testi e
-  // zëvendëson atë që gjeneron agjenti me këtë, që prova të jetë e vlefshme.
   const eph = Keypair.fromSeed(sa.fromHex(FX.ephemeral_private_key_hex));
-  const realGenerate = Keypair.generate;
-  Keypair.generate = () => eph;
-  const fetch = async (url) =>
-    url === "https://salt.test"
-      ? new Response(JSON.stringify({ salt: FX.address_seed_inputs.user_salt }))
-      : new Response(JSON.stringify({ ...FX.inputs, addressSeed: FX.inputs.address_seed }));
-  const config = { connection, programId, proverUrl: "https://prover.test", saltUrl: "https://salt.test", fetch };
+  const config = { connection, programId, proverUrl: "", saltUrl: "" };
   const policy = { expiresIn: 3600, label: "agent", allowedPrograms: [sa.SYSTEM_PROGRAM_ID], limits: [sa.solLimit(1_000_000_000n, 3600)] };
-  svm.airdrop(A(eph.publicKey), 1_000_000_000n);
-
-  let wallet;
-  try {
-    const done = loginAgent({
-      config, provider: "google", clientId: FX.address_seed_inputs.aud, policy, now: 1, sessionSecs: FX.max_epoch - 1,
-      // "Shfletuesi": lexon URL-në, ndërton JWT-në me nonce-in dhe e poston te loopback-u.
-      open: async (u) => {
-        const url = new URL(u);
-        const redirect = new URL(url.searchParams.get("redirect_uri"));
-        const page = await (await globalThis.fetch(redirect)).text();
-        assert.match(page, /\/token/);
-        const jwt = [b64({ alg: "RS256", kid: FX.jwk.kid }), b64({ iss, aud: FX.address_seed_inputs.aud, sub: FX.address_seed_inputs.claim_value, nonce: url.searchParams.get("nonce") }), "x"].join(".");
-        const r = await globalThis.fetch(new URL("/token", redirect), { method: "POST", body: `id_token=${jwt}&state=${url.searchParams.get("state")}` });
-        assert.equal(r.status, 200);
-      },
-    });
-    const r = await done;
-    assert.equal(r.created, true);
-    wallet = r.wallet;
-  } finally {
-    Keypair.generate = realGenerate;
-  }
+  const owner = new sa.SolanaAuth(config);
+  const pending = { ephemeralSecretKey: eph.secretKey, maxEpoch: FX.max_epoch, randomness: "1", nonce: "n" };
+  const jwt = [b64({ alg: "RS256", kid: FX.jwk.kid }), b64({ iss, aud: "a", sub: "s" }), "x"].join(".");
+  const result = await loginAgent({ config, policy, now: 1, authorize: async request => {
+    assert.ok(!request.sessionKey.equals(eph.publicKey));
+    const approved = await owner.buildDelegation(jwt, pending, sa.normalizeInputs(FX.inputs), request.policy, request.sessionKey, admin.publicKey);
+    approved.transaction.partialSign(admin);
+    const signature = await connection.sendRawTransaction(approved.transaction.serialize());
+    svm.airdrop(A(request.sessionKey), 1_000_000_000n);
+    return { wallet: approved.authorization.wallet, signature, created: approved.created };
+  } });
+  assert.equal(result.created, true);
+  const wallet = result.wallet;
 
   const dir = mkdtempSync(join(tmpdir(), "agent-"));
   wallet.save(join(dir, "s.json"));

@@ -19,6 +19,60 @@ import { RateLimiter, requestIp } from '../services/prover/dist/rate-limit.js';
 const now = 1_800_000_000;
 const pricing = loadPricing(fileURLToPath(new URL('../config/pricing.json', import.meta.url)));
 const key = () => Keypair.generate().publicKey;
+test('V2 public policy configuration distinguishes omitted, zero and deny-all rules', () => {
+  const free = { version: 2, expiresIn: 60 };
+  const denied = { ...free, allowedPrograms: [], restrictAssets: true };
+  assert.notDeepEqual(sa.policyHash(free), sa.policyHash(denied));
+  const policy = { ...free, limits: [{ mint: sa.SOL_MINT, maxPerExecute: 0n }], frequency: { maxExecutions: 0, periodSecs: 60 } };
+  const json = JSON.parse(JSON.stringify(sa.policyToJson(policy)));
+  assert.equal(json.limits[0].maxPerExecute, '0');
+  assert.deepEqual(sa.policyHash(sa.policyFromJson(json)), sa.policyHash(policy));
+  assert.throws(() => sa.policyFromJson({ ...json, destination: 'silently ignored?' }), /unsupported/);
+  assert.throws(() => sa.encodePolicy({ ...free, limits: [{ mint: sa.SOL_MINT, amount: 1n }] }), /periodSecs/);
+  assert.throws(() => sa.encodePolicy({ ...free, frequency: { maxExecutions: 1, periodSecs: 0 } }), /positive/);
+  assert.throws(() => sa.encodePolicy({ version: 1, expiresIn: 60, allowedPrograms: [], limits: [], frequency: { maxExecutions: 1, periodSecs: 60 } }), /V2/);
+});
+
+test('high-level login exports an execution key separate from the OAuth key and owner signature binds policy', async () => {
+  const fx = JSON.parse(readFileSync(new URL('../fixtures/proofs/google-mainnet-v1.json', import.meta.url)));
+  const owner = Keypair.fromSeed(sa.fromHex(fx.ephemeral_private_key_hex));
+  const auth = new sa.SolanaAuth({ connection: { getAccountInfo: async () => null, getLatestBlockhash: async () => ({ blockhash: PublicKey.default.toBase58(), lastValidBlockHeight: 1 }) }, programId: key(), proverUrl: '', saltUrl: '' });
+  const pending = { ephemeralSecretKey: owner.secretKey, maxEpoch: fx.max_epoch, randomness: '1', nonce: 'n' };
+  const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const jwt = [b64({ alg: 'RS256', kid: fx.jwk.kid }), b64({ iss: 'https://accounts.google.com', aud: 'a', sub: 's' }), 'x'].join('.');
+  const { transaction, session } = await auth.buildLogin(jwt, pending, sa.normalizeInputs(fx.inputs), { version: 2, expiresIn: 60 });
+  assert.ok(!session.sessionKey.publicKey.equals(owner.publicKey));
+  assert.equal(transaction.verifySignatures(), true);
+  const exported = JSON.parse(sa.serializeSession(session));
+  assert.notDeepEqual(exported.sessionKey, [...owner.secretKey]);
+  assert.equal(exported.ephemeralSecretKey, undefined);
+  const instruction = transaction.instructions[0];
+  instruction.data[instruction.data.length - 1] ^= 1;
+  assert.equal(transaction.verifySignatures(), false, 'changing policy invalidates the owner approval');
+  await assert.rejects(auth.buildDelegation(jwt, pending, sa.normalizeInputs(fx.inputs), { version: 2, expiresIn: 60 }, owner.publicKey), /must differ/);
+  await assert.rejects(loginAgent({ config: {}, policy: { version: 2, expiresIn: 60 } }), /Client wallet authorization required/);
+});
+
+test('agent accepts only a matching program-owned approval and rejects substituted policy receipts', async () => {
+  const programId = key(), wallet = key();
+  const policy = { version: 2, expiresIn: 60 };
+  for (const wrong of ['none', 'hash', 'owner']) {
+    let data;
+    const config = { programId, proverUrl: '', saltUrl: '', connection: { getAccountInfo: async () => ({ data, owner: wrong === 'owner' ? key() : programId }) } };
+    const run = loginAgent({ config, policy, now: 1, authorize: async request => {
+      data = Buffer.alloc(728);
+      data[0] = 4; data[1] = 2; data[6] = 3;
+      data.set(wallet.toBytes(), 8);
+      data.set(request.sessionKey.toBytes(), 40);
+      data.writeBigInt64LE(61n, 80);
+      data.set(sa.policyHash(request.policy), 696);
+      if (wrong === 'hash') data[696] ^= 1;
+      return { wallet, signature: 'public-receipt', created: false };
+    } });
+    if (wrong === 'none') assert.ok((await run).wallet.session.wallet.equals(wallet));
+    else await assert.rejects(run, e => e.code === 'InvalidDelegation');
+  }
+});
 test('patched RPC client retains the web3 HTTP JSON-RPC contract', async () => {
   const connection = new Connection('http://localhost:8899', { fetch: async (_url, init) => {
     const request = JSON.parse(init.body);

@@ -197,9 +197,61 @@ pub struct Session {
 impl Account for Session {
     const LEN: usize = 640;
     const DISC: u8 = 4;
+
+    fn check(
+        view: &pinocchio::AccountView,
+        program_id: &pinocchio::Address,
+    ) -> crate::error::Result<()> {
+        if !view.owned_by(program_id) {
+            return Err(crate::error::AuthError::InvalidAccount.into());
+        }
+        Self::from_bytes(&view.try_borrow()?)?;
+        Ok(())
+    }
+
+    fn from_bytes(data: &[u8]) -> crate::error::Result<&Self> {
+        if !Self::valid_layout(data) {
+            return Err(crate::error::AuthError::InvalidAccount.into());
+        }
+        // SAFETY: validated full layout; Session is the 640-byte, alignment-one prefix.
+        Ok(unsafe { &*(data.as_ptr() as *const Self) })
+    }
+
+    fn from_bytes_mut(data: &mut [u8]) -> crate::error::Result<&mut Self> {
+        if !Self::valid_layout(data) {
+            return Err(crate::error::AuthError::InvalidAccount.into());
+        }
+        // SAFETY: validated layout and unique borrow; all fields are bytes/Pod integers.
+        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
+    }
+
+    fn init_bytes(data: &mut [u8]) -> crate::error::Result<&mut Self> {
+        if ![Self::LEN, Self::V2_LEN].contains(&data.len()) || data[0] != 0 {
+            return Err(crate::error::AuthError::AlreadyInitialized.into());
+        }
+        data[0] = Self::DISC;
+        data[1] = if data.len() == Self::LEN { 1 } else { 2 };
+        Self::from_bytes_mut(data)
+    }
 }
 
 impl Session {
+    pub const V2_LEN: usize = Self::LEN + core::mem::size_of::<SessionRules>();
+    fn valid_layout(data: &[u8]) -> bool {
+        data.len() >= Self::LEN
+            && data[0] == Self::DISC
+            && ((data.len() == Self::LEN && data[1] == 1)
+                || (data.len() == Self::V2_LEN && data[1] == 2))
+            && data[4] as usize <= MAX_PROGRAMS
+            && data[5] as usize <= MAX_LIMITS
+            && (data[1] != 2 || (data[6] & !7 == 0 && data[7] == 0))
+    }
+    pub fn unrestricted_programs(&self) -> bool {
+        self.version == 2 && self._pad[0] & 1 != 0
+    }
+    pub fn unrestricted_assets(&self) -> bool {
+        self.version == 2 && self._pad[0] & 2 != 0
+    }
     pub fn programs(&self) -> &[[u8; 32]] {
         &self.allowed_programs[..self.n_programs as usize]
     }
@@ -207,9 +259,40 @@ impl Session {
     pub fn limits_mut(&mut self) -> &mut [SpendLimit] {
         &mut self.limits[..self.n_limits as usize]
     }
+    pub fn limits(&self) -> &[SpendLimit] {
+        &self.limits[..self.n_limits as usize]
+    }
 
     pub fn is_usable(&self, now: i64) -> bool {
         self.revoked == 0 && now < self.expires_at.get()
+    }
+}
+
+/// V2 extension, preserving the V1 account prefix and address derivation.
+#[repr(C)]
+pub struct SessionRules {
+    pub per_execute: [PodU64; MAX_LIMITS],
+    pub max_executions: PodU32,
+    pub period_secs: PodU32,
+    pub executions: PodU32,
+    pub _pad: [u8; 4],
+    pub window_start: PodI64,
+    pub policy_hash: [u8; 32],
+}
+
+impl SessionRules {
+    pub fn from_bytes(data: &[u8]) -> crate::error::Result<&Self> {
+        Session::from_bytes(data)?;
+        if data.len() != Session::V2_LEN {
+            return Err(crate::error::AuthError::InvalidAccount.into());
+        }
+        // SAFETY: complete V2 layout checked, extension has alignment one and byte-only fields.
+        Ok(unsafe { &*(data.as_ptr().add(Session::LEN) as *const Self) })
+    }
+    pub fn from_bytes_mut(data: &mut [u8]) -> crate::error::Result<&mut Self> {
+        Self::from_bytes(data)?;
+        // SAFETY: checked V2 extension with an exclusive data borrow.
+        Ok(unsafe { &mut *(data.as_mut_ptr().add(Session::LEN) as *mut Self) })
     }
 }
 
@@ -222,4 +305,6 @@ const _: () = {
     assert!(core::mem::align_of::<Jwk>() == 1);
     assert!(core::mem::align_of::<Wallet>() == 1);
     assert!(core::mem::align_of::<Session>() == 1);
+    assert!(core::mem::align_of::<SessionRules>() == 1);
+    assert!(Session::V2_LEN == 728);
 };

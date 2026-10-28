@@ -6,7 +6,7 @@
  * një XSS) merr sesionin, por vetëm brenda politikës on-chain: programet e lejuara, limitet dhe
  * skadimi. Çelësi i përdoruesit (Google/Apple) nuk prek kurrë faqen.
  */
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import {
   PendingLogin,
   Policy,
@@ -96,12 +96,12 @@ export class BrowserLogin {
       ? await this.opts.submit(transaction, this.auth.connection)
       : this.auth.feePayer
         ? await this.auth.feePayer.submit(transaction)
-        : await this.sendAsSessionKey(transaction, session);
+        : await this.sendAsSessionKey(transaction, session, pending);
     this.storage.setItem(this.key, serializeSession(session));
     return { session, created, signature };
   }
 
-  private async sendAsSessionKey(tx: Transaction, session: Session) {
+  private async sendAsSessionKey(tx: Transaction, session: Session, pending: PendingLogin) {
     if (!tx.feePayer?.equals(session.sessionKey.publicKey)) throw new Error("jep `submit` kur paguesi s'është çelësi i sesionit");
     await this.opts.fundSessionKey?.(session.sessionKey.publicKey, this.auth.connection);
     if (this.opts.fundSessionKey) {
@@ -110,7 +110,7 @@ export class BrowserLogin {
       tx.recentBlockhash = latest.blockhash;
       tx.lastValidBlockHeight = latest.lastValidBlockHeight;
     }
-    tx.sign(session.sessionKey);
+    tx.sign(Keypair.fromSecretKey(pending.ephemeralSecretKey), session.sessionKey);
     const sig = await this.auth.connection.sendRawTransaction(tx.serialize());
     await confirmTransaction(this.auth.connection, sig, tx);
     return sig;
